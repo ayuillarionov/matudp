@@ -12,6 +12,7 @@
 #include <math.h>     // mathematical functions
 #include <sys/stat.h> // data returned by the [f,l]stat() function
 
+#include "errors.h"
 #include "utils.h"
 #include "signal.h"
 #include "signalLogger.h"
@@ -328,9 +329,9 @@ void updateSignalFileInfo(SignalFileInfo *pSignalFile, DataLoggerStatus *pStatus
 	// build pathBufferSaveTag as dataRoot/storeName/subject/YYYYMMDD/protocol/saveTag#/
 	char pathBufferIndex[MAX_FILENAME_LENGTH];
 	char pathBufferTrial[MAX_FILENAME_LENGTH];
-	snprintf(pathBufferIndex, MAX_FILENAME_LENGTH,
+	snprintf_nowarn(pathBufferIndex, MAX_FILENAME_LENGTH,
 			"%s/%s/%s/%s", dataRoot, pStatus->dataStore, pStatus->subject, dateFolderBuffer);
-	snprintf(pathBufferTrial, MAX_FILENAME_LENGTH,
+	snprintf_nowarn(pathBufferTrial, MAX_FILENAME_LENGTH,
 			"%s/%s/saveTag%03d", pathBufferIndex, pStatus->protocol, pStatus->saveTag);
 
 	// check that this data directory exists if it's changed from last time
@@ -387,16 +388,16 @@ void updateSignalFileInfo(SignalFileInfo *pSignalFile, DataLoggerStatus *pStatus
 	strftime(fileTimeBuffer, MAX_FILENAME_LENGTH, "%Y%m%d.%H%M%S", &timeInfo);
 
 	// assemble short file name without path
-	snprintf(pSignalFile->fileNameShort, MAX_FILENAME_LENGTH,
+	snprintf_nowarn(pSignalFile->fileNameShort, MAX_FILENAME_LENGTH,
 			"%s_%s_id%06d_time%s.%03d.mat", pStatus->subject, pStatus->protocol,
 			trialStatus->trialId, fileTimeBuffer, msec);
 
 	// path relative to index file, e.g. protocol/saveTag#/fileName.mat
-	snprintf(pSignalFile->fileNameRelativeToIndex, MAX_FILENAME_LENGTH,
+	snprintf_nowarn(pSignalFile->fileNameRelativeToIndex, MAX_FILENAME_LENGTH,
 			"%s/saveTag%03d/%s", pStatus->protocol, pStatus->saveTag, pSignalFile->fileNameShort);
 
 	// assemble file name with path
-	snprintf(pSignalFile->fileName, MAX_FILENAME_LENGTH,
+	snprintf_nowarn(pSignalFile->fileName, MAX_FILENAME_LENGTH,
 			"%s/%s", pSignalFile->filePath, pSignalFile->fileNameShort);
 }
 
@@ -484,7 +485,7 @@ void addTrialMetaFields(mxArray *mxTrial, const DataLoggerStatus *dlStatus, unsi
 	char trialIdStr[MAX_STRING];
 	char dateStr[MAX_STRING];
 	strftime(dateStr, MAX_STRING, "%Y%m%d", &timeInfo);
-	snprintf(trialIdStr, MAX_STRING, "%s_%s_%s_saveTag%03u_trial%04u",
+	snprintf_nowarn(trialIdStr, MAX_STRING, "%s_%s_%s_saveTag%03u_trial%04u",
 			dlStatus->subject, dateStr, dlStatus->protocol,
 			dlStatus->saveTag, trialStatus->trialId);
 
@@ -691,7 +692,7 @@ void addSignalDataField(mxArray *mxTrial, const SignalDataBuffer *psdb, unsigned
 	// field name is groupName_signalName
 	char fieldName[MAX_SIGNAL_NAME];
 	if (useGroupPrefix)
-		snprintf(fieldName, MAX_SIGNAL_NAME, "%s_%s", psdb->pGroupInfo->name, psdb->name);
+		snprintf_nowarn(fieldName, MAX_SIGNAL_NAME, "%s_%s", psdb->pGroupInfo->name, psdb->name);
 	else
 		strncpy(fieldName, psdb->name, MAX_SIGNAL_NAME);
 
@@ -901,7 +902,7 @@ void addEventGroupFields(mxArray *mxTrial, mxArray *mxGroupMeta,
 
 		// build the groupName_eventName field name
 		if (useGroupPrefix)
-			snprintf(fieldName, MAX_SIGNAL_NAME, "%s_%s", groupName, info->eventName);
+			snprintf_nowarn(fieldName, MAX_SIGNAL_NAME, "%s_%s", groupName, info->eventName);
 		else
 			strncpy(fieldName, info->eventName, MAX_SIGNAL_NAME);
 

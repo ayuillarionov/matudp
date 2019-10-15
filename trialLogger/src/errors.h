@@ -24,6 +24,9 @@
 	# define DPRINTF(arg)
 #endif
 
+// avoid gcc -Wformat-truncation [...] warns
+#define snprintf_nowarn(...) (snprintf(__VA_ARGS__) < 0 ? abort() : (void)0)
+
 /*
  * NOTE: the "do {" ... "} while (0);" bracketing around the macros
  * allows the err_abort and errno_abort macros to be used as if they
@@ -44,12 +47,9 @@
 	fprintf (stderr, "%s (errorcode = %d) at \"%s\":%d : %s\n", \
 			text, code, __FILE__, __LINE__, strerror (code))
 #define err_abort(code, text) do { \
+	err_print(code, text); \
 	abort (); \
 	} while (0)
-//#define err_abort(code, text) do { \
-//	err_print(code, text); \
-//	abort (); \
-//	} while (0)
 #define errno_print(text) \
 	fprintf (stderr, "%s (errno = %d) at \"%s\":%d : %s\n", \
 			text, errno, __FILE__, __LINE__, strerror (errno))
