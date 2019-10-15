@@ -1,462 +1,602 @@
-#include <pthread.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h> /* For strcmp() */
-#include <time.h>
+/*
+ * File Name : network.c
+ * Author    : Alexey Yu. Illarionov, INI UZH Zurich
+ *             <ayuillarionov@ini.uzh.ch>
+ *
+ * Created   : Wed 13 Sep 2017 03:47:38 PM CEST
+ * Modified  : Tue 23 Jul 2019 05:00:05 PM CEST
+ * Computer  : ZVPIXX
+ * System    : Linux 4.4.0-93-lowlatency x86_64 x86_64
+ *
+ * Purpose   : receive BusSerialized data off the network
+ * Note      : LINUX/MACOS specific implementation
+ *
+ * Network Check : sudo tcpdump -vv -i eno4 -n udp port 29001 -X
+ */
 
-//Windows specific stuff
-#ifdef WIN32
-//#include <windows.h>
-#include <winsock2.h>
-#include <WS2tcpip.h>
-#define close(s) closesocket(s)
-#define s_errno WSAGetLastError()
-#define EWOULDBLOCK WSAEWOULDBLOCK
-#define usleep(a) Sleep((a)/1000)
-#define MSG_NOSIGNAL 0
-#define nonblockingsocket(s) {unsigned long ctl = 1;ioctlsocket( s, FIONBIO, &ctl );}
-typedef int socklen_t;
-//End windows stuff
+#include <pthread.h>               // unix POSIX multi-threaded
+
+#include <stdio.h>                 // C library to perform Input/Output operations
+#include <stdlib.h>                // malloc, atoi
+#include <unistd.h>                // standard symbolic constants and types, e.g. NULL
+#include <string.h>                /* For strcmp(), strchr(), strncpy() and memset */
+#include <time.h>                  // date and time information
+
+// WINDOWS specific stuff (build with Ws2_32.lib)
+#ifdef _WIN32
+	#pragma comment(lib,"ws2_32.lib")  // link with Winsock Library
+	#include <Winsock2.h>              // most of the Winsock functions, structures, and definitions
+	#include <WS2tcpip.h>              // new WinSock2 Protocol-Specific Annex document for TCP/IP
+	#define close(s) closesocket(s)
+	#define s_errno WSAGetLastError()  // error status for the last Windows Sockets operation that failed
+	#define EWOULDBLOCK WSAEWOULDBLOCK // resource temporarily unavailable (10035)
+	#define usleep(a) Sleep((a)/1000)  // in microsecond
+	#define MSG_NOSIGNAL 0
+	#define nonblockingsocket(s) {unsigned long ctl = 1;ioctlsocket( s, FIONBIO, &ctl );}
+	typedef int socklen_t;
+// end WINDOWS stuff
 #else
-#include <arpa/inet.h>
-#include <inttypes.h>
-#include <unistd.h>
-#include <netdb.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <netinet/in.h>
-#include <net/if.h>
-#include <arpa/inet.h>
-#include <fcntl.h>
-#define nonblockingsocket(s)  fcntl(s,F_SETFL,O_NONBLOCK)
-#define Sleep(a) usleep(a*1000)
+	#include <inttypes.h>              // fixed size integer types, includes stdint.h
+	#include <sys/types.h>             // data types
+	#include <sys/ioctl.h>             // Generic I/O Control operations
+	#include <fcntl.h>                 // manipulate file descriptor
+	#include <sys/socket.h>            // Internet Protocol family (number of definitions of structures needed for sockets)
+	#include <netinet/in.h>            // Internet Address family (constants and structures needed for internet domain addresses, e.g. sockaddr_in)
+	#include <netinet/ip.h>            // declarations for ip header
+	#include <netinet/udp.h>           // declarations for udp header
+	#include <netdb.h>                 // definitions for network database operations
+	#include <arpa/inet.h>             // for inet_pton(), inet_ntop(), inet_ntoa(), INET_ADDRSTRLEN
+	#include <net/if.h>                // sockets local interfaces (ifreq structure)
+	#define nonblockingsocket(s)  fcntl(s, F_SETFL, O_NONBLOCK) // nonblocking I/O on socket
+	#define Sleep(a) usleep(a*1000)    // in milliseconds
 #endif
 
-// Local includes
+// local includes
+#include "errors.h"
 #include "utils.h"
 #include "parser.h"
 #include "signal.h"
+
 #include "network.h"
 
-// bind port for broadcast UDP receive
-#define SEND_IP "192.168.1.255"
-#define SEND_PORT 10000
+#define NET_INTERVAL_USEC 1*1000 // 1msec
 
-void *networkReceiveThread(void * dummy);
-void networkReceiveThreadCleanup(void * dummy);
+// bind port for broadcast UDP send if not defined ETHERNET_INTERFACE:HOST_IP:PORT
+#define RTM_IP "100.1.1.255" // real-time machine IP
+#define RTM_PORT 10005       // real-time machine port
 
-int sock;
-bool sockOpen;
-pthread_t netThread;
-int sockOut;
-bool sockOutOpen;
-int recvFilterInterface = -1;
+#define USE_SOCK_RAW 0 // NOTE: 1(true) requires the root access
 
-// Setup Socket Variables
-struct sockaddr_in si_me, si_other;
-int slen=sizeof(si_other);
+static void *networkThread(void *arg);
+static void networkThreadCleanup(void *arg); // automatically executed when a thread is canceled
 
-// used to pass data to the processing function
+// Internal structure describing a local server network configuration and states
+typedef struct network_tag {
+	pthread_t thread;           // thread for socket
+
+	int sock;                   // local server (recv) socket
+	bool sockOpen;              // true if socket is open
+	int sockSend;               // send socket
+	bool sockSendOpen;          // true if sockSend is open
+
+	int serverFilterInterface;  // filter by the type of local network card (interface index)
+
+	struct sockaddr_in si_send; // address for writing responses
+
+} network_t, *network_p;
+
+static network_t netThread;
+
+// used to pass data to the processing functions
 static PacketData packetData;
+
 // handle to callback
-static void (*packetReceivedCallbackFn)(const PacketData*);
+static void (*packetRecvCallbackFn)(const PacketData*);   // parse incoming data from XPC
+//static void (*packetSendCallbackFn)(const void*); // send sensor data to XPC
 
 bool parseNetworkAddress(const char* str, NetworkAddress* addr) {
-    char *ptr1 = NULL, *ptr2 = NULL;
-    char interface[MAX_INTERFACE_LENGTH];
-    char host[MAX_HOST_LENGTH];
+	char *ptr1 = NULL, *ptr2 = NULL;
+	char interface[MAX_INTERFACE_LENGTH];
+	char host[MAX_HOST_LENGTH];
 
-    // find first colon
-    ptr1 = strchr(str, ':');
-    if(ptr1 != NULL) {
-        // find second colon
-        ptr2 = strchr(ptr1+1, ':');
-    }
+	DPRINTF(("parsing %s\n", str));
 
-    //printf("parsing %s\n", str);
+	// find first colon
+	ptr1 = strchr(str, ':');
+	if (ptr1 != NULL) {   // find second colon
+		ptr2 = strchr(ptr1+1, ':');
+	}
 
-    if(ptr2 == NULL) {
-        // no interface specified
-        if(ptr1 == NULL) {
-            // no host specified, just port
-            setNetworkAddress(addr, "", "", atoi(str));
-        } else {
-            int len = ptr1 - str;
-            strncpy(host, str, len);
-            host[len] = '\0';
-            setNetworkAddress(addr, "", host, atoi(ptr1+1));
-        }
-    } else {
-        // interface sand host specified
-        int len = ptr1 - str;
-        strncpy(interface, str, len);
-        interface[MAX_INTERFACE_LENGTH-1] = '\0';
+	if (ptr2 == NULL) {
+		// no interface specified
+		if (ptr1 == NULL) { // no host specified, just port
+			setNetworkAddress(addr, "", "", atoi(str));
+		} else {
+			int len = ptr1 - str;
+			strncpy(host, str, len);
+			host[len] = '\0'; // null character
 
-        len = ptr2-(ptr1+1);
-        if(len <= 0)
-            strcpy(host, "");
-        else {
-            strncpy(host, ptr1+1, len);
-            host[len] = '\0';
-        }
-        setNetworkAddress(addr, interface, host, atoi(ptr2+1));
-    }
+			if ( isValidIpAddress(host) )
+				setNetworkAddress(addr, "", host, atoi(ptr1+1));
+		}
+	} else {
+		// interface and host specified
+		int len = ptr1 - str;
+		if (len > MAX_INTERFACE_LENGTH-1) {
+			fprintf(stderr, "Network interface name is limited to %i characters\n", MAX_INTERFACE_LENGTH-1);
+			return false;
+		}
+		strncpy(interface, str, len);
+		interface[len] = '\0'; // null character
 
-    return (addr->port > 0);
+		len = ptr2 - (ptr1+1);
+		if (len <= 0)          // no host specified
+			strcpy(host, "");
+		else {
+			strncpy(host, ptr1+1, len);
+			host[len] = '\0';    // null character
+		}
+
+		if ( isValidIpAddress(host) )
+			setNetworkAddress(addr, interface, host, atoi(ptr2+1));
+	}
+
+	return (addr->port > 0);
 }
 
-void setNetworkAddress(NetworkAddress* addr, const char *interface,
-        const char* host, unsigned port) {
-    strncpy(addr->interface, interface, MAX_INTERFACE_LENGTH);
-    addr->interface[MAX_INTERFACE_LENGTH] = '\0';
-    strncpy(addr->host, host, MAX_HOST_LENGTH);
-    addr->host[MAX_HOST_LENGTH] = '\0';
-    addr->port = port;
+bool isValidIpAddress(const char *ipAddress) {
+	if ( strcmp(ipAddress, "localhost") == 0 )
+		return true;
+
+	struct sockaddr_in sa; // structure for handling internet address. defined in netinet/in.h
+	// convert an Internet address in its standard IPv4 dotted-decimal text format into its numeric binary form
+	int result = inet_pton(AF_INET, ipAddress, &(sa.sin_addr));
+	return result == 1;
 }
 
-char netStrBuf[MAX_HOST_LENGTH+MAX_INTERFACE_LENGTH+10];
-const char * getNetworkAddressAsString(const NetworkAddress* addr) {
-    char *bufPtr;
+void setNetworkAddress(NetworkAddress* addr, const char *interface, const char* host, unsigned int port) {
+	strncpy(addr->interface, interface, MAX_INTERFACE_LENGTH-1);
+	addr->interface[MAX_INTERFACE_LENGTH-1] = '\0';
+	strncpy(addr->host, host, MAX_HOST_LENGTH-1);
+	addr->host[MAX_HOST_LENGTH-1] = '\0';
+	addr->port = port;
+}
 
-    bufPtr = netStrBuf;
-    if(strlen(addr->interface) == 0)
-        strcpy(bufPtr, "");
-    else {
-        snprintf(bufPtr, MAX_INTERFACE_LENGTH, "%s:", addr->interface);
-        bufPtr[MAX_INTERFACE_LENGTH] = '\0';
-        bufPtr += strlen(bufPtr);
-    }
+char netStrBuf[MAX_INTERFACE_LENGTH + MAX_HOST_LENGTH + 10];
+const char * getNetworkAddressAsString(const NetworkAddress *addr) {
+	char *bufPtr = netStrBuf;
 
-    if(strcmp(addr->host, "") == 0)
-        snprintf(bufPtr, MAX_HOST_LENGTH+10, "0.0.0.0:%u", addr->port);
-    else
-        snprintf(bufPtr, MAX_HOST_LENGTH+10, "%s : %u", addr->host, addr->port);
+	if ( strlen(addr->interface) == 0 )
+		strcpy(bufPtr, "");
+	else {
+		// write formatted output to sized buffer
+		snprintf(bufPtr, MAX_INTERFACE_LENGTH+1, "%s:", addr->interface);
+		bufPtr[MAX_INTERFACE_LENGTH+1] = '\0';
+		bufPtr += strlen(bufPtr);
+	}
 
-    return (const char*) netStrBuf;
+	if (strcmp(addr->host, "") == 0)
+		snprintf(bufPtr, MAX_HOST_LENGTH+10, "0.0.0.0:%u", addr->port);
+	else
+		snprintf(bufPtr, MAX_HOST_LENGTH+10, "%s:%u", addr->host, addr->port);
+
+	return (const char*) netStrBuf;
+}
+
+// configurate and start UDP server (bind recv addr to the socket)
+int startServer(const NetworkAddress *addr) {
+	char ipstr[INET_ADDRSTRLEN]; // final IPv4 address as a character string
+
+	// setup local address info
+	struct addrinfo hints, *result = 0, *p;
+	const char *host, *interface;
+	char portString[20];
+	snprintf(portString, 20, "%u", addr->port);
+
+	if (addr->host[0] == '\0' || strlen(addr->host) == 0)
+		host = NULL;
+	else
+		host = addr->host;
+
+	if (addr->interface[0] == '\0' || strlen(addr->interface) == 0)
+		interface = NULL;
+	else
+		interface = addr->interface;
+
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_INET;      // IPv4
+	hints.ai_socktype = SOCK_DGRAM; // UDP datagrams socket
+	hints.ai_protocol = 0;          // left unspecified
+	hints.ai_flags = AI_PASSIVE | AI_ADDRCONFIG; // fill my IP address for me if host is NULL (wildcard IP address)
+
+	// get the list of address structures
+	int status = 0;
+	if ( (status = getaddrinfo(host, portString, &hints, &result)) != 0 ) {
+		fprintf(stderr, "Network: getaddrinfo(%s) returned error: %s\n", host, gai_strerror(status));
+		return NETWORK_ERROR_SETUP;
+	}
+
+	// loop through all results and bind the first we can
+	int sock;
+	for (p = result; p != NULL; p = p->ai_next) {
+		// open socket
+		if (USE_SOCK_RAW)
+			sock = socket(AF_INET, SOCK_RAW, IPPROTO_UDP);
+		else
+			sock = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+
+		if (sock == -1) {
+			errno_print("Network: Creation of Socket(SOCK_DGRAM/IPPROTO_UDP) failed");
+			continue;
+		}
+
+		if (set_network_socket_attribs(sock, interface) == NETWORK_ERROR_SETUP) {
+			close(sock);
+			continue;
+		}
+
+		// generate IP string by converting a numeric network address (binary) into a text string
+		inet_ntop(AF_INET, &(((struct sockaddr_in*)p->ai_addr)->sin_addr), ipstr, sizeof(ipstr));
+
+		// bind the socket to the address of the current host and port number on which the server will run
+		if ( bind(sock, p->ai_addr, p->ai_addrlen) == -1 ) {
+			fprintf(stderr, "Network: Bind could not bind address %s:%u\n", ipstr, addr->port);
+			close(sock);
+			continue;
+		}
+
+		break; // Success
+	}
+
+	if (p == NULL) { // none in the list worked
+		fprintf(stderr, "Could not open server socket\n");
+		freeaddrinfo(result); // done with the list of results
+		return NETWORK_ERROR_SETUP;
+	}
+
+	logInfo("Network: UDP server started at %s:%u\n", ipstr, addr->port);
+
+	// done with the list of results
+	freeaddrinfo(result);
+
+	netThread.sock = sock;
+	netThread.sockOpen = true;
+
+	return 0;
+}
+
+int set_network_socket_attribs(const int sock, const char *interface) {
+	int status;
+	const int yes = 1;
+
+	// set socket buffer size big enough to avoid dropped packets
+	int length = MAX_PACKET_LENGTH*50;
+	status = setsockopt(sock, SOL_SOCKET, SO_RCVBUF, (char*)&length, sizeof(int));
+	if (status == -1) {
+		errno_print("Network: Error setting socket receive buffer size");
+		return NETWORK_ERROR_SETUP;
+	}
+
+	// allow socket to send broadcast packets (if .255 dest ip is provided) (SOCK_DGRAM sockets only)
+	status = setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &yes, sizeof(int));
+	if (status == -1) {
+		errno_print("Network: Error setting broadcast permissions!");
+		return NETWORK_ERROR_SETUP;
+	}
+
+	int serverFilterInterface = -1;
+	// optional
+	if (interface != NULL) { // store the interface index so we can compare later
+		struct ifreq ifr;
+		memset(&ifr, 0, sizeof(ifr));
+		strncpy(ifr.ifr_name, interface, sizeof(ifr.ifr_name));
+
+		// retrieve the interface index of the interface into ifr_ifindex
+#ifdef SIOCGIFINDEX
+		if ( ioctl(sock, SIOCGIFINDEX, &ifr) < 0 ) {
+			errno_print("Network: ioctl error");
+			return NETWORK_ERROR_SETUP;
+		}
+		serverFilterInterface = ifr.ifr_ifindex;
+#else
+		serverFilterInterface = if_nametoindex(ifr.ifr_name);
+		if (serverFilterInterface == 0) {
+			errno_print("Network: if_nametoindex error");
+			return NETWORK_ERROR_SETUP;
+		}
+#endif
+
+		// attempt to bind device to this interface index
+#ifdef __APPLE__
+		status = setsockopt(sock, IPPROTO_TCP, IP_BOUND_IF, &serverFilterInterface, sizeof(serverFilterInterface) );
+#else
+		status = setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, (void*)&ifr, sizeof(ifr));
+#endif
+		if (status == -1) {
+			fprintf(stderr, "Network: Could not bind to device interface %s. Try as root?\n : %s\n",
+				 	interface, strerror(errno));
+			return NETWORK_ERROR_SETUP;
+		}
+	}
+
+	netThread.serverFilterInterface = serverFilterInterface;
+
+	// receive ancillary packet information at recvmsg()
+	status = setsockopt(sock, IPPROTO_IP, IP_PKTINFO, &yes, sizeof(yes));
+	if (status == -1) {
+		errno_print("Network: Error setting option IPPROTO_IP");
+		return NETWORK_ERROR_SETUP;
+	}
+
+	// allow socket reuse for listening
+	status = setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+	if (status == -1) {
+		errno_print("Network: Could not enable SO_REUSEADDR");
+		return NETWORK_ERROR_SETUP;
+	}
+
+	return 0;
+}
+
+void stopServer(const int sock) {
+	logInfo("Network: Terminating UDP server\n");
+	if (netThread.sockOpen)
+		close(sock);
+	netThread.sockOpen = false;
 }
 
 // install the callback function to process incoming packets
-void networkSetPacketReceivedCallbackFn(void (*fn)(const PacketData*)) {
-	packetReceivedCallbackFn = fn;
+void networkSetPacketRecvCallbackFn(void (*fn)(const PacketData*)) {
+	packetRecvCallbackFn = fn;
 }
 
-// Start Network Receive Thread
-int networkReceiveThreadStart(const NetworkAddress* recv) {
+/*
+// install the callback function to prepare outcoming packets
+void networkSetPacketSendCallbackFn(void (*fn)(const void*)) {
+	packetSendCallbackFn = fn;
+}
+*/
 
-    // setup local receive address info
-    struct addrinfo hints, *res, *p;
-    char portString[20];
-    const char * host;
-    const char * interface;
-    snprintf(portString, 20, "%u", recv->port);
-    if(recv->host == NULL || strlen(recv->host) == 0)
-        host = NULL;
-    else
-        host = recv->host;
-
-    recvFilterInterface = -1;
-
-    if(recv->interface == NULL || strlen(recv->interface) == 0)
-        interface = NULL;
-    else
-        interface = recv->interface;
-
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_INET; // IP v4
-    hints.ai_socktype = SOCK_DGRAM; // UDP datagrams
-    hints.ai_flags = AI_PASSIVE; // fill my IP address for me if NULL in netConf.recvAddr
-
-    // get receive address info list
-    int status = 0;
-    if ((status = getaddrinfo(host, portString, &hints, &res)) != 0) {
-        logError("Network: getaddrinfo(%s) returned error: %s\n", host, gai_strerror(status));
-        return NETWORK_ERROR_SETUP;
-    }
-
-    // loop through all results and bind the first we can
-    for(p = res; p != NULL; p = p->ai_next) {
-        // open socket for receiving
-        if ((sock=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1) {
-            logError("Network: socket returned error\n");
-            continue;
-        }
-
-        // Set socket buffer size to avoid dropped packets
-        int length = MAX_PACKET_LENGTH*50;
-        if (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, (char*)&length, sizeof(int)) == -1) {
-            logError("Network: Error setting socket receive buffer size \n");
-            close(sock);
-            continue;
-        }
-
-        // allow socket to receive broadcast packets (if .255 dest ip is provided)
-        int broadcast = 1;
-        if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)) == -1) {
-            logError("Network: Error setting broadcast permissions!\n");
-            close(sock);
-            continue;
-        }
-
-        if(interface != NULL) {
-            // store the interface index so we can compare later
-            struct ifreq ifr;
-            memset(&ifr, 0, sizeof(ifr));
-            strncpy(ifr.ifr_name, interface, sizeof(ifr.ifr_name));
-            ioctl(sock, SIOCGIFINDEX, &ifr);
-
-            recvFilterInterface = ifr.ifr_ifindex;
-            // attempt to bind device
-            if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, (void*)&ifr, sizeof(ifr)) == -1) {
-                logError("Network: Could not bind to device interface %s. Try as root?\n", interface);
-            }
-        } else {
-            recvFilterInterface = -1;
-        }
-
-        // receive packet information at recvmsg()
-        if(setsockopt(sock, IPPROTO_IP, IP_PKTINFO, &broadcast, sizeof broadcast) == -1) {
-            logError("Network: Error setting option IPPROTO_IP\n");
-            close(sock);
-            continue;
-        }
-
-        // generate ip string
-        struct sockaddr_in *ipv4 = (struct sockaddr_in*) p->ai_addr;
-        void* addr = &(ipv4->sin_addr);
-        char ipstr[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET,  addr, ipstr, sizeof ipstr);
-
-        // allow socket reuse for listening
-        int set_option_on = 1;
-        if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char*)&set_option_on,
-                    sizeof(set_option_on)) == -1) {
-            logError("Netlogwork: Could not enable SO_REUSEADDR\n");
-            continue;
-        }
-
-        // bind the socket
-        if (bind(sock,p->ai_addr, p->ai_addrlen)==-1) {
-            close(sock);
-            logError("Network: Bind could not bind address %s:%u\n", ipstr, recv->port  );
-            continue;
-        }
-
-        break;
-    }
-
-    if(p == NULL) {
-        // none in the list worked
-        logError("Could not open receive socket\n");
-
-        // done with the list of results
-        freeaddrinfo(res);
-
-        return NETWORK_ERROR_SETUP;
-    }
-
-    // print bound socket address info
-    struct sockaddr_in *ipv4 = (struct sockaddr_in*) p->ai_addr;
-    void* addr = &(ipv4->sin_addr);
-    char ipstr[INET_ADDRSTRLEN];
-    inet_ntop(AF_INET,  addr, ipstr, sizeof ipstr);
-    logInfo("Network: listening for UDP at %s:%u\n", ipstr, recv->port);
-
-    // done with the list of results
-    freeaddrinfo(res);
-
-    sockOpen = true;
-
-    int rcNetwork = pthread_create(&netThread, NULL, networkReceiveThread, NULL);
-    if (rcNetwork) {
-        logError("Network: Return code from pthread_create() is %d\n", rcNetwork);
-        return NETWORK_ERROR_SETUP;
-    }
-
-    return 0;
+// automatically executed when a thread is canceled
+static void networkThreadCleanup(void *arg) {
+	logInfo("Network: ==> Terminating network thread\n");
+	networkCloseSendSocket();
+	stopServer(netThread.sock);
 }
 
-void networkReceiveThreadTerminate() {
-    pthread_cancel(netThread);
-    pthread_join(netThread, NULL);
+// Start Network Thread
+//int networkThreadStart(const NetworkAddress* recv_addr, const NetworkAddress *send_addr, const (void*)arg) {
+int networkThreadStart(const NetworkAddress* recv_addr, const NetworkAddress *send_addr) {
+	// start local (recv) server
+	if (startServer(recv_addr) == NETWORK_ERROR_SETUP) {
+		fprintf(stderr, "Network: Could not start server\n");
+		return NETWORK_ERROR_SETUP;
+	}
+
+	// start network send
+	networkOpenSendSocket(send_addr);
+
+	//int status = pthread_create(&(netThread.thread), NULL, networkThread, (void*)arg);
+	int status = pthread_create(&(netThread.thread), NULL, networkThread, NULL);
+	if (status) {
+		err_print(status, "Network: Return code from pthread_create()");
+		return NETWORK_ERROR_SETUP;
+	}
+
+	return 0;
 }
 
-void * networkReceiveThread(void * dummy)
-{
-    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
-    //pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
-    pthread_cleanup_push(networkReceiveThreadCleanup, NULL);
+void networkThreadTerminate() {
+	void *res = NULL;
+	int status;
+	status = pthread_cancel(netThread.thread);     // send a cancellation request to the netTread
+	if (status != 0)
+		err_abort(status, "Network: Cancel thread");
 
+	status = pthread_join(netThread.thread, &res); // wait for thread termination
+	if (status != 0)
+		err_abort(status, "Network: Join thread");
+
+	if (res == PTHREAD_CANCELED)
+		logInfo("Network: Network thread was canceled\n");
+	else
+		logInfo("Network: Network thread terminated normally\n");
+}
+
+static void *networkThread(void *arg) {
+	int status;
+	// thread is cancelable (default)
+	status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+	if (status != 0)
+		err_abort(status, "Network: setcancelstate");
+	// keep the cancellation request pending until the next cancellation point (default)
+	//status = pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
+	//if (status != 0)
+	//	err_abort(status, "Network: setcanceltype");
+	// pushes routine networkReceiveThreadCleanup onto the top of the stack of clean-up handlers
+	pthread_cleanup_push(networkThreadCleanup, arg);
+
+	int bytesRecv = -1;
+	while(1) {
+		// -- listen to the network and parse the packetData if any
+		status = networkRecv(&packetData, bytesRecv, MSG_DONTWAIT); // non-blocking recvmsg
+		//if (status != 0)
+		//	DPRINTF(("Network: networkRecv error\n"));
+		pthread_testcancel(); // a cancellation point
+	}
+
+	// removes the routine networkReceiveThreadCleanup at the top of the stack of clean-up handlers
+	pthread_cleanup_pop(0);
+
+	return NULL;
+}
+
+// The recv call uses a msghdr structure which is defined in <sys/socket.h>. More info: man recvmsg
+int networkRecv(PacketData *p, int bytesRecv, int flags) {
 	uint8_t rawPacket[MAX_PACKET_LENGTH];
 
-    struct iovec io;
-    struct msghdr msgh;
-    char controlbuf[0x100];
-    struct sockaddr_in si_sender;
-    struct cmsghdr *cmsg;
-    int bytesRead;
-    bool validPacket;
+	struct msghdr msgh;
+	struct iovec io;                // scatter/gather array items, as discussed in man readv
+	struct sockaddr_in si_sender;   // source address
+	char controlbuf[0x100];         // = 256
+	struct cmsghdr *cmsg;           // control message sequence
 
-    while(1)
-    {
-        // prepare to receive packet info
-        memset(&msgh,0,sizeof msgh);
-        memset(&io, 0, sizeof io);
-        io.iov_base = rawPacket;
-        io.iov_len = MAX_PACKET_LENGTH;
-        msgh.msg_iov = &io;
-        msgh.msg_iovlen = 1;
-        msgh.msg_name = &si_sender;
-        msgh.msg_namelen = sizeof(si_sender);
-        msgh.msg_control = controlbuf;
-        msgh.msg_controllen = sizeof(controlbuf);
+	// prepare to receive packet info
+	memset(&io, 0, sizeof(io));
+	io.iov_base = rawPacket;                  // starting address
+	io.iov_len = MAX_PACKET_LENGTH;           // number of bytes to transfer
 
-        // Read from the socket
-        bytesRead = recvmsg(sock, &msgh, 0);
+	memset(&msgh, 0, sizeof(msgh));
+	msgh.msg_iov = &io;                       // scatter/gather locations
+	msgh.msg_iovlen = 1;                      // # elements in msg_iov
+	msgh.msg_name = &si_sender;               // source (optional) address (NULL if no name)
+	msgh.msg_namelen = sizeof(si_sender);     // size of address
+	msgh.msg_control = controlbuf;            // control-related messages or miscellaneous ancillary data
+	msgh.msg_controllen = sizeof(controlbuf); // ancillary data buffer length
 
-        if(recvFilterInterface > 0) {
-            // loop through control headers
-            for(cmsg = CMSG_FIRSTHDR(&msgh);
-                    cmsg != NULL;
-                    cmsg = CMSG_NXTHDR(&msgh, cmsg))
-            {
-                if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_PKTINFO)
-                    break;
-            }
+	// read from the socket
+	bytesRecv = recvmsg(netThread.sock, &msgh, flags);
 
-            if(cmsg != NULL) {
-                struct in_pktinfo *pi = (struct in_pktinfo*)CMSG_DATA(cmsg);
-                unsigned int ifindex = pi->ipi_ifindex;
+	if (bytesRecv == -1) {
+		//DPRINTF(("Network: recvmsg() at \"%s\":%d : %s\n", __FILE__, __LINE__, strerror (errno)));
+		return NETWORK_ERROR_RECV;
+	}
 
-                printf("Packet from interface %u to %s (local %s)\n", ifindex,
-                        inet_ntoa(pi->ipi_addr),
-                        inet_ntoa(pi->ipi_spec_dst));
-                if(ifindex != recvFilterInterface) {
-                    logError("Rejecting packet at interface %u (accept at %u)\n", ifindex, recvFilterInterface);
-                    continue;
-                } else {
-                    logInfo("Accepting packet at interface %u\n", ifindex);
-                }
+	// filter by interface index
+	if (netThread.serverFilterInterface > 0) {
+		// loop through control headers in msgh to get PKTINFO structure about the incoming packet
+		for (cmsg = CMSG_FIRSTHDR(&msgh); cmsg != NULL; cmsg = CMSG_NXTHDR(&msgh, cmsg)) {
+			if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_PKTINFO)
+				break;
+		}
 
-            } else {
-                logError("Could not access packet receipt message header\n");
-                continue;
-            }
-        }
+		if (cmsg != NULL) {
+			struct in_pktinfo *pi = (struct in_pktinfo*)CMSG_DATA(cmsg); // man 7 ip
+			unsigned int ifindex = pi->ipi_ifindex; // get the index of the interface the packet was received on
 
-        //logInfo("Received %d bytes!\n", bytesRead);
+			DPRINTF(("Network: Received packet from interface %u to %s (local %s)\n",
+						ifindex, inet_ntoa(pi->ipi_addr), inet_ntoa(pi->ipi_spec_dst)));
 
-        if(bytesRead == -1)
-            diep("recvfrom()");
+			if (netThread.serverFilterInterface != (int)ifindex) {
+				fprintf(stderr, "Network: Rejecting packet at interface %u (only accept at %u)\n",
+						ifindex, netThread.serverFilterInterface);
+				return NETWORK_ERROR_RECV;
+			} else {
+				DPRINTF(("Network: Accepting packet at interface %u\n", ifindex));
+			}
+		} else {
+			fprintf(stderr, "Network: Could not access packet receipt message header\n");
+			return NETWORK_ERROR_RECV;
+		}
+	}
 
-        // read the raw packet and check its checksum
-        validPacket = processRawPacket(rawPacket, bytesRead, &packetData);
+	DPRINTF(("Network: Received %d bytes!\n", bytesRecv));
 
-        // pass the packetData to the callback function
-        if (validPacket) {
-        	if(packetReceivedCallbackFn != NULL) {
-        		packetReceivedCallbackFn(&packetData);
-        	} else {
-                logError("No packetReceivedCallbackFn specified!\n");
-            }
-        } else {
-            logError("Invalid packet checksum\n");
-        }
-    }
+	// get IP and UDP headers of RAW packet if present
+	int header_size = 0;
+	if (USE_SOCK_RAW) {
+		// get IP header of RAW packet
+#ifdef __APPLE__
+		struct ip *iph = (struct ip *)(rawPacket);
+		unsigned short iphdrlen = iph->ip_hl*4;  // 20
+		//unsigned short iphdrlen = sizeof(struct ip); // 20
+#else
+		struct iphdr *iph = (struct iphdr *)(rawPacket);
+		unsigned short iphdrlen = iph->ihl*4;  // 20
+		//unsigned short iphdrlen = sizeof(struct iphdr); // 20
+#endif
+		// get UDP header of RAW packet
+		struct udphdr *udph = (struct udphdr*)(rawPacket + iphdrlen);
+		header_size = iphdrlen + sizeof(udph); // 8
+	}
 
-    close(sock);
-    sockOpen = false;
-    pthread_cleanup_pop(0);
+	// read the raw packet and check its checksum
+	bool validPacket = processRawPacket(rawPacket + header_size, bytesRecv - header_size, &packetData);
 
-    return NULL;
+	// pass the packetData to the callback function
+	if (validPacket) {
+		if (packetRecvCallbackFn != NULL) {
+			packetRecvCallbackFn(&packetData);
+		} else {
+			fprintf(stderr, "Network: No packetRecvCallbackFn specified!\n");
+		}
+	} else {
+		fprintf(stderr, "Network: Invalid packet checksum\n");
+	}
+
+	return validPacket ? 0 : NETWORK_ERROR_RECV;
 }
 
-// look at the raw data off the socket and convert hat into a PacketData
-// struct.
+// look at the raw data off the socket and convert that into a PacketData struct.
 //
 // packetData is the byte stream received directly off of the socket
-// the data will contain an 8 bit header, 4 of which are "#udp", followed
-// by a 2 byte uint16 length, and a 2 byte uint16 checksum
-// and process the PacketSet if it is the last remaining Packet for it.
-bool processRawPacket(uint8_t* rawPacket, int bytesRead, PacketData* p)
-{
+// the raw data contains a 4 bit header, followed by 2 byte uint16 length, and a 2 byte uint16 checksum
+bool processRawPacket(uint8_t *rawPacket, int bytesRead, PacketData *p) {
 	// parse rawPacket into a PacketData struct
-    memset(p, 0, sizeof(PacketData));
+	memset(p, 0, sizeof(PacketData));
 
-    const uint8_t* pBuf = rawPacket;
+	const uint8_t* pBuf = rawPacket;
 
-    if (bytesRead < 8) {
-    	return false;
-    }
+	if (bytesRead < 8)
+		return false;
 
-    // check packet header string matches (otherwise could be garbage packet)
-    // got rid of short header string, should be filtering packets by ip and port,
-    // not packet contents
-    /*
-    if(strncmp((char*)pBuf, PACKET_HEADER_STRING, strlen(PACKET_HEADER_STRING)) != 0)
-    {
-    	// packet header does not match, discard
-    	return false;
-    }
-    pBuf = pBuf + strlen(PACKET_HEADER_STRING);
-    */
+	int headerLength = 4;
 
-    int headerLength = 4;
+	// store the length
+	memcpy(&(p->length), pBuf, sizeof(uint16_t)); pBuf += sizeof(uint16_t);
 
-    // store the length
-    STORE_UINT16(pBuf, p->length);
-    if(p->length > bytesRead - headerLength) {
-    	logError("Invalid packet length!\n");
-    	return false;
-    }
+	if (p->length > bytesRead - headerLength) {
+		fprintf(stderr, "Invalid packet length!\n");
+		return false;
+	}
 
-    // store the checksum
-    STORE_UINT16(pBuf, p->checksum);
+	// store the checksum
+	memcpy(&(p->checksum), pBuf, sizeof(uint16_t)); pBuf += sizeof(uint16_t);
 
-    // copy the raw data into the data buffer
-    STORE_UINT8_ARRAY(pBuf, p->data, p->length);
+	// copy the raw data into the data buffer
+	memcpy(p->data, pBuf, p->length*sizeof(uint8_t));
 
-    // validate the checksum: sum(bytes as uint8) modulo 2^16
-    uint32_t accum = 0;
-    for(int i = 0; i < p->length; i++)
-    	accum += p->data[i];
-    accum = accum % 65536;
+	// validate the checksum: sum(bytes as uint8) modulo 2^16
+	uint32_t accum = 0;
+	for (int i=0; i < p->length; i++)
+		accum += p->data[i];
+	accum = accum % 65536;
 
-    // return true if checksum valid
-    return accum == p->checksum;
+	// return true if checksum valid
+	return accum == p->checksum;
 }
 
-void networkReceiveThreadCleanup(void* dummy) {
-    logInfo("Network: Terminating thread\n");
-    if(sockOpen)
-        close(sock);
-    sockOpen = false;
-}
+// start network send
+int networkOpenSendSocket(const NetworkAddress *send_addr) {
+	const char *host; // in the standard IPv4 dotted decimal notation
 
-struct sockaddr_in si_send; // address for writing responses
+	if (send_addr->host[0] == '\0' || strlen(send_addr->host) == 0)
+		host = RTM_IP;
+	else
+		host = send_addr->host;
 
-void networkOpenSendSocket() {
-    memset((char *) &si_send, 0, sizeof(si_send));
-    si_send.sin_family = AF_INET;
-    si_send.sin_port = htons(SEND_PORT);
+	memset((char *) &(netThread.si_send), 0, sizeof(struct sockaddr_in));
+	netThread.si_send.sin_family = AF_INET;              // IPv4
+	netThread.si_send.sin_addr.s_addr = inet_addr(host); // to an integer value suitable for use as an Internet address
+	netThread.si_send.sin_port = htons(send_addr->port);      // convert from host byte order to network byte order
 
-    sockOut = sock;
-    sockOutOpen = false;
-    logInfo("Network: Ready to send to %s:%d\n", SEND_IP, SEND_PORT);
+	netThread.sockSend = netThread.sock; // use the same socket for receiving and sending
+	netThread.sockSendOpen = false;
+
+	printf("Network: Ready to send to %s:%d\n", host, send_addr->port);
+
+	return 0;
 }
 
 void networkCloseSendSocket() {
-    sockOutOpen = false;
+	netThread.sockSendOpen = false;
 }
 
-bool networkSend(const char* sendBuffer, unsigned bytesSend) {
-    if(sendto(sockOut, (char *)sendBuffer, bytesSend,
-        0, (struct sockaddr *)&si_send, sizeof(si_send)) == -1) {
-        logError("Sendto error");
-        return false;
-    }
-
-    return true;
+bool networkSend(const char *sendBuffer, unsigned bytesSend) {
+	if ( sendto(netThread.sockSend, (char *)sendBuffer, bytesSend,
+				0, (struct sockaddr *)&(netThread.si_send), sizeof(struct sockaddr_in)) == -1 ) {
+		errno_print("Network: Sendto error");
+		return false;
+	}
+	return true;
 }

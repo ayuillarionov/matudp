@@ -10,24 +10,23 @@ typedef struct SignalFileInfo {
 	char filePath[MAX_FILENAME_LENGTH];
 
 	// fully qualified name of file (including filePath)
-    char fileName[MAX_FILENAME_LENGTH];
+	char fileName[MAX_FILENAME_LENGTH];
 
-    // trailing name of file (without filePath)
-    char fileNameShort[MAX_FILENAME_LENGTH];
+	// trailing name of file (without filePath)
+	char fileNameShort[MAX_FILENAME_LENGTH];
 
-    // path to file relative to index file 
-    char fileNameRelativeToIndex[MAX_FILENAME_LENGTH];
+	// path to file relative to index file 
+	char fileNameRelativeToIndex[MAX_FILENAME_LENGTH];
 
-    // index file contains a list of .mat file names for all protocols, saveTags
-    char indexFileName[MAX_FILENAME_LENGTH];
-    
-    // index file contains a list of .mat file names for a specific protocol, saveTag
-    char saveTagIndexFileName[MAX_FILENAME_LENGTH];
+	// index file contains a list of .mat file names for all protocols, saveTags
+	char indexFileName[MAX_FILENAME_LENGTH];
 
-    // file handle for index file
-    FILE* indexFile;
-    FILE* saveTagIndexFile;
+	// index file contains a list of .mat file names for a specific protocol, saveTag
+	char saveTagIndexFileName[MAX_FILENAME_LENGTH];
 
+	// file handle for index file
+	FILE* indexFile;
+	FILE* saveTagIndexFile;
 } SignalFileInfo; 
 
 const char* getDataRoot();
@@ -43,11 +42,10 @@ void signalWriterThreadTerminate();
 //
 // clear buffers determines whether we clear the timestamp and data buffers
 // after polling or simply leave them be
-mxArray* buildGroupsArrayForTrial(DataLoggerStatus *, unsigned, bool);
+mxArray* buildGroupsArrayForTrial(DataLoggerStatus*, unsigned, bool);
 mxArray* buildGroupsArrayForCurrentTrial(bool);
 
 void buildTrialStructForCurrentTrial(mxArray**, mxArray**);
 void buildTrialStructForLastCompleteTrial(mxArray**, mxArray**);
 
-#endif
-
+#endif /* WRITER_H_INCLUDED */

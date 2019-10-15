@@ -1,7 +1,12 @@
-*.o
+# Ignore directories and tags file
+bin/
+build/
+tags
+
+# Precompiled Headers
 *.pch
+# Object files
+*.o
+# Matlab specific
 *~
-signalLogger
-build/*
-bin/*
 

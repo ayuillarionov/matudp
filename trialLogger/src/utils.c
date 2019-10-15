@@ -19,46 +19,45 @@
 
 #ifdef MATLAB_MEX_FILE
 /*
-void* matlabMallocPersist(size_t size) {
-    void* p;
+void *matlabMallocPersist(size_t size) {
+    void *p;
     p = mxMalloc((mwSize)size);
     mexMakeMemoryPersistent(p);
     return p;
 }
 
-void* matlabCallocPersist(size_t n, size_t size) {
-    void* p;
+void *matlabCallocPersist(size_t n, size_t size) {
+    void *p;
     p = mxCalloc((mwSize)n, (mwSize)size);
     mexMakeMemoryPersistent(p);
     return p;
 }
 
-void* matlabReallocPersist(void *p, size_t size) {
+void *matlabReallocPersist(void *p, size_t size) {
     p = mxRealloc(p, (mwSize)size);
     mexMakeMemoryPersistent(p);
     return p;
 }*/
 
-void matlabFree(void* p) {
+void matlabFree(void *p) {
     if(p != NULL)
         mxFree(p);
 }
 
-void* matlabMallocTemp(size_t size) {
+void *matlabMallocTemp(size_t size) {
     return mxMalloc((mwSize)size);
 }
 
-void* matlabCallocTemp(size_t n, size_t size) {
+void *matlabCallocTemp(size_t n, size_t size) {
    return mxCalloc((mwSize)n, (mwSize)size);
 }
 
-void* matlabReallocTemp(void *p, size_t size) {
+void *matlabReallocTemp(void *p, size_t size) {
     return mxRealloc(p, (mwSize)size);
 }
 #endif
 
-void diep(const char *s)
-{
+void diep(const char *s) {
 #ifndef MATLAB_MEX_FILE
     perror(s);
     exit(1);
@@ -67,7 +66,7 @@ void diep(const char *s)
 #endif
 }
 
-#ifndef MACOS
+//#ifndef MACOS
 static struct timespec tstart, tstop;
 static double totalElapsed;
 
@@ -76,7 +75,7 @@ void tic() {
     clock_gettime(CLOCK_MONOTONIC, &tstart);
 }
 
-void ticpause() {
+void ticPause() {
     double elapsed;
     clock_gettime(CLOCK_MONOTONIC, &tstop);
     elapsed = (tstop.tv_sec - tstart.tv_sec);
@@ -84,22 +83,22 @@ void ticpause() {
     totalElapsed += elapsed;
 }
 
-void ticresume() {
+void ticResume() {
     clock_gettime(CLOCK_MONOTONIC, &tstart);
 }
 
 double tocCheck() {
-    ticpause();
-    ticresume();
+    ticPause();
+    ticResume();
     return totalElapsed;
 }
 
 double toc() {
-    ticpause();
+    ticPause();
     return totalElapsed;
-    //printf("Elapsed time : %.6f seconds\n", totalElapsed);
+    //logInfo("Elapsed time : %.6f seconds\n", totalElapsed);
 }
-#endif
+//#endif
 
 mxClassID convertDataTypeIdToMxClassId(uint8_t dataTypeId)
 {
@@ -148,7 +147,7 @@ int mkdirRecursive(const char *dir) {
     size_t len;
     int failed;
 
-    //printf("Recursive mkdir %s\n", dir);
+    //logInfo("Recursive mkdir %s\n", dir);
 
     snprintf(tmp, sizeof(tmp),"%s",dir);
     len = strlen(tmp);
@@ -162,40 +161,39 @@ int mkdirRecursive(const char *dir) {
             *p = '/';
         }
     }
-    //printf("mkdir %s\n", tmp);
+    //logInfo("mkdir %s\n", tmp);
     failed = mkdir(tmp, S_IRWXU);
     return failed;
 }
 
 wallclock_t getCurrentWallclock() {
-    // wallclock will be in seconds since the unix epoch
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
+	// wallclock will be in seconds since the unix epoch
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
 
-    return (wallclock_t)(tv.tv_sec) + (wallclock_t)(tv.tv_usec) / 100000.0;
+	return (wallclock_t)(tv.tv_sec) + (wallclock_t)(tv.tv_usec) / 100000.0;
 }
 
-void convertWallclockToLocalTime(wallclock_t wallclock, struct tm* timeinfo, unsigned* msec) {
-    // wallclocks are seconds since the unix epoch, i.e. unix timestamps
-    time_t t = (time_t)wallclock;
-    localtime_r(&t, timeinfo);
+void convertWallclockToLocalTime(wallclock_t wallclock, struct tm *timeinfo, unsigned *msec) {
+	// wallclocks are seconds since the unix epoch, i.e. unix timestamps
+	time_t t = (time_t)wallclock;
+	localtime_r(&t, timeinfo);
 
 	// and msec within the current second (to ensure the names never collide)
-    *msec = (unsigned int)floor((wallclock-floor(wallclock)) * 1000.0);
+	*msec = (unsigned int)floor((wallclock-floor(wallclock)) * 1000.0);
 }
 
-datenum_t convertWallclockToMatlabDateNum(wallclock_t wallclock)
-{
-    // wallclock are seconds since the unix epoch generated locally by getCurrentWallclock above
-    // matlab datenums are days since jan 1, 0000
+datenum_t convertWallclockToMatlabDateNum(wallclock_t wallclock) {
+	// wallclock are seconds since the unix epoch generated locally by getCurrentWallclock above
+	// matlab datenums are days since jan 1, 0000
+	
+	// need to get the UTC offset in order to put into local time
+	struct tm timeInfo;
+	time_t t = (time_t)wallclock;
+	localtime_r(&t, &timeInfo);
+	double_t secOffsetToLocalTime = timeInfo.tm_gmtoff;
 
-    // need to get the UTC offset in order to put into local time
-    struct tm timeInfo;
-    time_t t = (time_t)wallclock;
-    localtime_r(&t, &timeInfo);
-    double_t secOffsetToLocalTime = timeInfo.tm_gmtoff;
-
-    return (wallclock + (double_t)UNIX_EPOCH_OFFSET_SECONDS + secOffsetToLocalTime) / (double_t)(SECONDS_IN_DAY);
+	return (wallclock + (double_t)UNIX_EPOCH_OFFSET_SECONDS + secOffsetToLocalTime) / (double_t)(SECONDS_IN_DAY);
 }
 
 
@@ -211,12 +209,10 @@ datenum_t convertWallclockToMatlabDateNum(wallclock_t wallclock)
     size = backtrace (array, 10);
     strings = backtrace_symbols (array, size);
 
-    printf("Obtained %zd stack frames.\n", size);
+    logInfo("Obtained %zd stack frames.\n", size);
 
     for (i = 0; i < size; i++)
-        printf ("%s\n", strings[i]);
+        logInfo("%s\n", strings[i]);
 
     free (strings);
 }*/
-
-
