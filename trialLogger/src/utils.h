@@ -7,7 +7,7 @@
 #include <inttypes.h>
 
 #ifdef MATLAB_MEX_FILE
-#include "mex.h"
+	#include "mex.h"
 #endif
 
 #include "mat.h"
@@ -63,7 +63,7 @@ mxClassID convertDataTypeIdToMxClassId(uint8_t dataTypeId);
 	#define logError(...) fprintf(stderr, __VA_ARGS__)
 #else
 	#define logInfo printf
-#	define logError(...) fprintf(stderr, __VA_ARGS__)
+	#define logError(...) fprintf(stderr, __VA_ARGS__)
 #endif
 
 void print_trace(void);

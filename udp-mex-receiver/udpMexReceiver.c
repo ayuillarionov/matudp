@@ -41,8 +41,8 @@ pthread_t dataFlushThread;
 int mex_call_counter = 0;
 
 // PRIVATE DECLARATIONS
-bool startServer();
-void stopServer();
+bool startUdpMexServer();
+void stopUdpMexServer();
 void cleanupAtExit();
 int strcmpi(const char *,const char *);
 unsigned convertInputArgsToBytestream(uint8_t*, unsigned, int, const mxArray **);
@@ -56,10 +56,10 @@ NetworkAddress send;
 
 // LOCAL DEFINITIONS
 void cleanupAtExit() {
-    stopServer();
+	stopUdpMexServer();
 }
 
-bool startServer() {
+bool startUdpMexServer() {
     char errMsg[MAX_HOST_LENGTH + 50];
     bool success = false;
 
@@ -72,9 +72,9 @@ bool startServer() {
     controlInitialize(true);
 
     // install the callback function for received packet data
-    networkSetPacketReceivedCallbackFn(&processReceivedPacketData);
+    networkSetPacketRecvCallbackFn(&processReceivedPacketData);
 
-    success = networkReceiveThreadStart(&recv) == 0;
+    success = networkThreadStart(&recv, &send) == 0;
 
     if(!success) {
         controlTerminate();
@@ -85,18 +85,17 @@ bool startServer() {
         return false;
     }
 
-    networkOpenSendSocket();
+    //networkOpenSendSocket(&send);
     //dataFlushThreadStart();
     return true;
 }
 
-void stopServer()
-{
-    logInfo("Stopping server!\n");
-    //dataFlushThreadTerminate();
-    networkReceiveThreadTerminate();
-    networkCloseSendSocket();
-    controlTerminate();
+void stopUdpMexServer() {
+	logInfo("Stopping server!\n");
+	//dataFlushThreadTerminate();
+	networkThreadTerminate();
+	networkCloseSendSocket();
+	controlTerminate();
 }
 
 int strcmpi(const char *s1,const char *s2)
@@ -182,7 +181,7 @@ void mexFunction(
                 return;
             }
 
-            // parse receive ip address
+            // parse send ip address
             success = false;
             if(mxIsChar(prhs[2])) {
                 mxGetString(prhs[2], tempAddressString, MAX_HOST_LENGTH);
@@ -196,13 +195,13 @@ void mexFunction(
                 success = true;
             }
             if(!success) {
-                mexErrMsgTxt("UdpMex: sendIPAndPort must be 'interface:host:port', 'host:port', numeric port");
+                mexErrMsgTxt("UdpMex: sendIPAndPort must be 'interface:host:port', 'host:port', or numeric port");
                 return;
             }
 
             // bind socket
             mexPrintf("UdpMex: Starting server at %s\n", getNetworkAddressAsString(&recv));
-            success = startServer();
+            success = startUdpMexServer();
             if(!success)
                 mexUnlock();
 
@@ -211,7 +210,7 @@ void mexFunction(
         } else if(strcmpi(fun,"stop")==0) {
             if (mexIsLocked()) {
                 mexPrintf("UdpMex: stopping\n");
-                stopServer();
+                stopUdpMexServer();
                 mexUnlock();
 
                 return;
