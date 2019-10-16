@@ -28,6 +28,7 @@ ifeq ($(SYSTEM), Linux)
 	MATLAB_BIN = $(shell ls -t /usr/local/MATLAB/*/bin/matlab | head -1)
 	MATLAB_ROOT = $(abspath $(dir $(MATLAB_BIN))../)
 	MATLAB_ARCH = glnxa64
+	MATLAB_MEXFILE_EXT = mexa64
 
 	ECHO = @echo -n "$(COLOR_BLUE)==>$(COLOR_WHITE)"
 	ECHO_END = ;echo " $(COLOR_BLUE)<==$(COLOR_NONE)"
@@ -47,6 +48,7 @@ ifeq ($(SYSTEM), Darwin)
 
 	MATLAB_ROOT=/Applications/MATLAB_R2019a.app
 	MATLAB_ARCH = maci64
+	MATLAB_MEXFILE_EXT = mexmaci64
 
 	ECHO = @echo
 	ECHO_END = 
@@ -92,8 +94,8 @@ O_FILES = $(BUILD_DIR)/udpMexReceiver.o
 GDBO_FILES = $(BUILD_DIR)/udpMexReceiver.gdb.o
 
 # final output
-MEX_FILE = udpMexReceiver.mexa64
-GDB_MEX_FILE = udpMexReceiver_gdb.mexa64
+MEX_FILE = udpMexReceiver.$(MATLAB_MEXFILE_EXT)
+GDB_MEX_FILE = udpMexReceiver_gdb.$(MATLAB_MEXFILE_EXT)
 
 # debugging, use make print-VARNAME to see value
 print-%:
