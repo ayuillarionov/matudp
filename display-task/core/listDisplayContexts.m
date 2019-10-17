@@ -1,4 +1,4 @@
 function list = listDisplayContexts()
-    map = getDisplayContextMap();
-    list = map.keys;
+  map = getDisplayContextMap();
+  list = map.keys;
 end

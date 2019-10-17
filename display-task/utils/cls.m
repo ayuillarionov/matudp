@@ -1,3 +1,3 @@
 function cls()
-    evalin('base', 'clear screen');
+  evalin('base', 'clear screen');
 end

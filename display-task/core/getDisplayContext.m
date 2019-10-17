@@ -1,4 +1,4 @@
-function [contextInfo contextName] = getDisplayContext(varargin)
+function [contextInfo, contextName] = getDisplayContext(varargin)
 % [contextInfo contextName] = getDisplayContext()
 %   retrieves the current display context
 %
@@ -9,11 +9,11 @@ function [contextInfo contextName] = getDisplayContext(varargin)
 %   sets the current context, used by setDisplayContext for this purpose
 %
 
-persistent pContextName;
-persistent pContextInfo;
+  persistent pContextName; % local to this function but retained in memory between calls
+  persistent pContextInfo;
 
-if nargin == 2 && strcmp(varargin{1}, 'setContext')
-    % set the display context 
+  if nargin == 2 && strcmp(varargin{1}, 'setContext')
+    % set the display context
 
     contextName = varargin{2};
     contextInfo = getContextInfo(contextName);
@@ -22,32 +22,31 @@ if nargin == 2 && strcmp(varargin{1}, 'setContext')
     pContextName = contextName;
     pContextInfo = contextInfo;
 
-elseif nargin == 1
+  elseif nargin == 1
     % retrieve a specific display context, don't change current
 
     contextName = varargin{1};
     contextInfo = getContextInfo(contextName);
 
-elseif nargin == 0
+  elseif nargin == 0
     % retrieve the current context
     contextName = pContextName;
     contextInfo = pContextInfo;
 
-else
+  else
     error('Error: number of arguments must be 0-2');
-end
+  end
 
 end
 
 function contextInfo = getContextInfo(contextName)
-    assert(ischar(contextName), 'Context Name must be a string');
+  assert(ischar(contextName), 'Context Name must be a string');
 
-    map = getDisplayContextMap();
-    
-    if ~map.isKey(contextName)
-        error('Display context %s not found', contextName);
-    end 
+  map = getDisplayContextMap();
 
-    contextInfo = map(contextName);
+  if ~map.isKey(contextName)
+    error('Display context %s not found', contextName);
+  end
+
+  contextInfo = map(contextName);
 end
-

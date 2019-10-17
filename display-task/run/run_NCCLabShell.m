@@ -1,4 +1,4 @@
-cxt = NDLab_DisplayContext();
+cxt = NCCLab_DisplayContext();
 
 % PsychDebugWindowConfiguration
 
