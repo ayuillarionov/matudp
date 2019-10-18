@@ -1,1 +1,0 @@
-# count    time(sec) samplingTime      sensor1      sensor2      sensor3      sensor4 arduinoState
