@@ -63,10 +63,10 @@ dkms.conf
 xpcnetboot.bat
 *~
 splrj
-*.mexw64
 slrtnetboot.bat
 *_rtw
 *.mexw64
 *.mexa64
+*.mexmaci64
 
 .DS_Store

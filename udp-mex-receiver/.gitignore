@@ -2,6 +2,8 @@ bin/
 build/
 tags
 
+# MEX specific
 *.mexa64
 *.mexw64
+*.mexmaci64
 
