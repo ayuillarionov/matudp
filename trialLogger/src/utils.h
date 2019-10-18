@@ -58,8 +58,8 @@ mxClassID convertDataTypeIdToMxClassId(uint8_t dataTypeId);
 #define FREE free
 
 #ifdef MATLAB_MEX_FILE
-	//#define logInfo mexPrintf
-	#define logInfo(...) (void)0
+	#define logInfo mexPrintf
+	//#define logInfo(...) (void)0
 	#define logError(...) fprintf(stderr, __VA_ARGS__)
 #else
 	#define logInfo printf

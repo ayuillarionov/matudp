@@ -1,10 +1,24 @@
 % build_udpMexReceiver;
 % to be used with testSerializeWithMultiUDP.mdl
 
-udpMexReceiver('start');
+% 1. broadcast UDP to the target (receiveAtIP on xpcDisplay)
+%cxt.networkTargetIP = '127.0.0.1'; % to the localhost for testing
+networkTargetIP = '100.1.1.3';
+% 2. (receivePort on xpcDisplay Target)
+networkTargetPort = 10001;
+% 3. receive UDP from broadcast (destIP on xpcDisplay Target)
+networkReceiveIP = '100.1.1.2';
+% 4. must match whatever the send UDP block on the target is set to
+% (destPort on xpcDisplay Target)
+networkReceivePort = 25001;
+
+udpMexReceiver('start', ...
+  sprintf('%s:%d', networkReceiveIP, networkReceivePort), ...
+  sprintf('%s:%d', networkTargetIP, networkTargetPort));
 
 figure(1), clf; set(1, 'Color', 'w');
 
+% -- Data from UDP plot
 subplot(1, 2, 1);
 hold on
 
@@ -19,6 +33,7 @@ xlim([-1.5 1.5]);
 ylim([-1.5 1.5]);
 box off
 
+% -- Mex Function Time plot
 subplot(1,2,2);
 tocVec = nan(1000, 1);
 hToc = plot(tocVec, 'k.');
@@ -31,16 +46,17 @@ box off
 
 fprintf('Waiting for data from xPC...\n');
 
-
 while(true)
    tocVec = [tocVec(2:end); NaN];
    tic
-   g = udpMexReceiver('poll');
+   
+   g = udpMexReceiver('pollGroups');
    if ~isempty(g)
     value = double(g(end).signals.x);
     timestamp = uint32(g(end).signals.t);
     udpMexReceiver('send', '#', value, timestamp);
    end
+   
    tocVec(end) = toc*1000;
    
    for i = 1:length(g)
@@ -57,7 +73,8 @@ while(true)
    
    pause(0.001);
    
-   if ~ishandle(1);
+   if ~ishandle(1)
        udpMexReceiver('stop');
+       break;
    end
 end

@@ -3,4 +3,5 @@ build/
 tags
 
 *.mexa64
+*.mexw64
 

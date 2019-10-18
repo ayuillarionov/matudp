@@ -41,30 +41,30 @@ pthread_t dataFlushThread;
 int mex_call_counter = 0;
 
 // PRIVATE DECLARATIONS
-bool startUdpMexServer();
-void stopUdpMexServer();
-void cleanupAtExit();
-int strcmpi(const char *,const char *);
-unsigned convertInputArgsToBytestream(uint8_t*, unsigned, int, const mxArray **);
+static bool startUdpMexServer();
+static void stopUdpMexServer();
+static void cleanupAtExit();
+int strcmpi(const char*,const char*); // AYuI: case insensitive string compare
+unsigned convertInputArgsToBytestream(uint8_t*, unsigned, int, const mxArray**);
 
 void dataFlushThreadStart();
 void dataFlushThreadTerminate();
-void * dataFlushThreadWorker(void *);
+void *dataFlushThreadWorker(void*);
 
-NetworkAddress recv;
-NetworkAddress send;
+static NetworkAddress recv;
+static NetworkAddress send;
 
 // LOCAL DEFINITIONS
 void cleanupAtExit() {
 	stopUdpMexServer();
 }
 
-bool startUdpMexServer() {
+static bool startUdpMexServer() {
     char errMsg[MAX_HOST_LENGTH + 50];
     bool success = false;
 
     logInfo("Starting server...\n");
-    mexLock();
+    mexLock(); // AYuI: prohibit clearing a MEX file from memory, when clear MATLAB workspace
 
     // initialize signal processing buffers and group lookup trie
     // true means wait until next trial is received to start buffering
@@ -76,21 +76,21 @@ bool startUdpMexServer() {
 
     success = networkThreadStart(&recv, &send) == 0;
 
-    if(!success) {
-        controlTerminate();
-        mexUnlock();
+    if (!success) {
+        controlTerminate();   // freeDataLoggerStatus
+        mexUnlock();          // allowed to clear MEX file from memory
         snprintf(errMsg, MAX_HOST_LENGTH + 50, "Could not start network receiver at %s",
                 getNetworkAddressAsString(&recv));
-        mexErrMsgTxt(errMsg);
+        mexErrMsgTxt(errMsg); // display error message and return to MATLAB prompt
         return false;
     }
 
-    //networkOpenSendSocket(&send);
+    networkOpenSendSocket(&send);
     //dataFlushThreadStart();
     return true;
 }
 
-void stopUdpMexServer() {
+static void stopUdpMexServer() {
 	logInfo("Stopping server!\n");
 	//dataFlushThreadTerminate();
 	networkThreadTerminate();
@@ -98,28 +98,28 @@ void stopUdpMexServer() {
 	controlTerminate();
 }
 
-int strcmpi(const char *s1,const char *s2)
-{
-    int val;
-    while( (val= toupper(*s1) - toupper(*s2))==0 ){
-        if(*s1==0 || *s2==0) return 0;
-        s1++;
-        s2++;
-        //while(*s1=='_') s1++;
-        //while(*s2=='_') s2++;
-    }
-    return val;
+// Compare Strings Without Case Sensitivity
+int strcmpi(const char *s1,const char *s2) {
+	int val;
+	while( (val = toupper(*s1) - toupper(*s2))==0 ) {
+		if (*s1==0 || *s2==0)
+			return 0;
+		s1++;
+		s2++;
+		//while(*s1=='_') s1++;
+		//while(*s2=='_') s2++;
+	}
+	return val;
 }
 
-void* p;
+void *p;
 
 void mexFunction(
         int           nlhs,           /* number of expected outputs */
         mxArray       *plhs[],        /* array of pointers to output arguments */
         int           nrhs,           /* number of inputs */
         const mxArray *prhs[]         /* array of pointers to input arguments */
-        )
-{
+        ) {
     //char * validCommands[] = {"start", "stop", "retrieveGroups", "pollGroups"};
     //unsigned nValidCommands = 4;
 
@@ -134,8 +134,7 @@ void mexFunction(
     // register cleanup function
     mexAtExit(cleanupAtExit);
 
-    if(mex_call_counter==0)
-    {
+    if (mex_call_counter ==0) {
         // first call
         mex_call_counter++;
     }
@@ -148,7 +147,7 @@ void mexFunction(
     nanosleep(&req, &req);
     */
 
-    if((nrhs >= 1) && mxIsChar(prhs[0])) {
+    if ( (nrhs >= 1) && mxIsChar(prhs[0]) ) {
         // GET FIRST ARGUMENT -- The "function" name
         mxGetString(prhs[0],fun,80);
 
@@ -195,7 +194,7 @@ void mexFunction(
                 success = true;
             }
             if(!success) {
-                mexErrMsgTxt("UdpMex: sendIPAndPort must be 'interface:host:port', 'host:port', or numeric port");
+                mexErrMsgTxt("UdpMex: sendIPAndPort must be 'interface:host:port', 'host:port', numeric port");
                 return;
             }
 
@@ -359,35 +358,32 @@ void dataFlushThreadStart() {
 }
 
 void dataFlushThreadTerminate() {
-    pthread_cancel(dataFlushThread);
-    pthread_join(dataFlushThread, NULL);
+	pthread_cancel(dataFlushThread);
+	pthread_join(dataFlushThread, NULL);
 }
 
-void * dataFlushThreadWorker(void * dummy)
-{
-    unsigned nSecondsExpire = 10;
-    struct timespec req;
-    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+void *dataFlushThreadWorker(void *dummy) {
+	unsigned nSecondsExpire = 10;
+	struct timespec req;
+	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
-    while(1)
-    {
-        //logInfo("Cleaning old data\n");
-        // flush retired data logger statuses
-        controlFlushRetiredStatuses();
+	while (1) {
+		//logInfo("Cleaning old data\n");
+		// flush retired data logger statuses
+		controlFlushRetiredStatuses();
 
-        // split the current trial into pieces if older than some threshold
-        controlManualSplitCurrentTrialIfOlderThan(nSecondsExpire);
+		// split the current trial into pieces if older than some threshold
+		controlManualSplitCurrentTrialIfOlderThan(nSecondsExpire);
 
-        // flush trials whose data are all older than some threshold
-        controlFlushTrialsOlderThan(2*nSecondsExpire);
+		// flush trials whose data are all older than some threshold
+		controlFlushTrialsOlderThan(2*nSecondsExpire);
 
-        // wait
-        pthread_testcancel();
-        req.tv_sec = 1;
-        req.tv_nsec = 0;
-        nanosleep(&req, &req);
-    }
+		// wait
+		pthread_testcancel();
+		req.tv_sec = 1;
+		req.tv_nsec = 0;
+		nanosleep(&req, &req);
+	}
 
-    return NULL;
+	return NULL;
 }
-
