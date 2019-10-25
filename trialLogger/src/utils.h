@@ -12,6 +12,7 @@
 
 #include "mat.h"
 
+#include "errors.h"
 #include "signal.h"
 
 // --- PERFORMANCE PROFILING FUNCTIONS (in seconds)
@@ -32,8 +33,13 @@ void convertWallclockToLocalTime(wallclock_t, struct tm*, unsigned*);
 datenum_t convertWallclockToMatlabDateNum(wallclock_t);
 mxClassID convertDataTypeIdToMxClassId(uint8_t dataTypeId);
 
+#define MALLOC malloc
+#define CALLOC calloc
+#define REALLOC realloc
+#define FREE free
+
 // use different malloc and free depending on whether this is compiled into a
-// mex function (udpMexReceiver) or standalone (serializedDataLogger)
+// mex function (udpMexReceiver) or standalone (trialLogger)
 
 #if defined(MATLAB_MEX_FILE)
 	#define MATLAB_MALLOC matlabMallocTemp
@@ -42,28 +48,14 @@ mxClassID convertDataTypeIdToMxClassId(uint8_t dataTypeId);
 	#define MATLAB_FREE matlabFree
 	void* matlabMallocTemp(size_t size);
 	void* matlabCallocTemp(size_t sizeElement, size_t nElements);
-	void* matlabReallocTemp(void* ptr, size_t newsize);
-	void matlabFree(void* p);
+	void* matlabReallocTemp(void *ptr, size_t newsize);
+	void  matlabFree(void *p);
 #else
-	// not in mex function
+	// not in MEX function
 	#define MATLAB_MALLOC malloc
 	#define MATLAB_CALLOC calloc
 	#define MATLAB_REALLOC realloc
 	#define MATLAB_FREE free
-#endif
-
-#define MALLOC malloc
-#define CALLOC calloc
-#define REALLOC realloc
-#define FREE free
-
-#ifdef MATLAB_MEX_FILE
-	#define logInfo mexPrintf
-	//#define logInfo(...) (void)0
-	#define logError(...) fprintf(stderr, __VA_ARGS__)
-#else
-	#define logInfo printf
-	#define logError(...) fprintf(stderr, __VA_ARGS__)
 #endif
 
 void print_trace(void);

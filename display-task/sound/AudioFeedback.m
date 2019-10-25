@@ -93,7 +93,7 @@ classdef AudioFeedback < handle
       if isempty(r.freq)
         r.freq = freq;
       else
-        assert(r.freq == freq, 'All sampling frequencies for loaded wav files must match');
+        assert(r.freq == freq, 'All sampling frequencies for loaded wav files must match')
       end
       if isempty(r.nChannels)
         r.nChannels = nChannels;
@@ -156,9 +156,14 @@ classdef AudioFeedback < handle
       % you can then play them via r.play(keyString)
       
       filePath = fileparts(mfilename('fullpath')); % search relative to this file's location
-      r.loadWav('failure', fullfile(filePath,'failure.wav'));
-      r.loadWav('success', fullfile(filePath,'success.wav'));
+      %r.loadWav('failure', fullfile(filePath,'failure.wav'));
+      %r.loadWav('success', fullfile(filePath,'success.wav'));
       r.loadWav('buzz', fullfile(filePath,'buzz.wav'));
+      
+      % OSX sounds
+      r.loadWav('success', fullfile(filePath, 'osx', filesep, 'Pop.wav'));
+      r.loadWav('failure', fullfile(filePath, 'osx', filesep, 'Blow.wav'));
+      r.loadWav('maskAcquired', fullfile(filePath, 'osx', filesep, 'Morse.wav'));
     end
     
     function playFailure(r)
@@ -171,6 +176,10 @@ classdef AudioFeedback < handle
     
     function playBuzz(r)
       r.play('buzz');
+    end
+    
+    function playMaskAcquired(r)
+      r.play('maskAcquired');
     end
   end
   

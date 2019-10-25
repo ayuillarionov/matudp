@@ -219,7 +219,7 @@
     function setup(eli, varargin)
       p = inputParser();
       
-      p.addParameter('sample_rate', 250, ...
+      p.addParameter('sample_rate', 1000, ...
         @(x) isscalar(x) && ismember(x, [0, 250, 500, 1000, 2000]));
 
       % physical screen sizes
@@ -266,7 +266,7 @@
         @(x) isscalar(x) && ismember(x, [16, 25, 35]));
       % set illumination power in camera setup screen (1 = 100%, 2 = 75%, 3 = 50%)
       % NOTE:  Variable read not supported
-      p.addParameter('elcl_tt_power', 1, ...
+      p.addParameter('elcl_tt_power', 2, ...
         @(x) isscalar(x) && ismember(x, [1, 2, 3]));
       
       % --- Calibration and Validation.
@@ -358,8 +358,8 @@
         'STATUS', ...         % warning and error flags
         'BUTTON', ...         % button 1..8 state and change flags
         'INPUT', ...          % input port data lines
-        'HMARKER', ...        % infrared head tracking markers
-        %'HTARGET', ...        % head position data (for EyeLink Remote only) TODO: doesnt work with HMARKER flag
+        'HTARGET', ...        % head position data (for EyeLink Remote only)
+        %'HMARKER', ...        % infrared head tracking markers
         };
       p.addParameter('file_sample_data', cell_array_of_sample_data_types, ...
         @(x) all(ismember(upper(x), cell_array_of_sample_data_types)));

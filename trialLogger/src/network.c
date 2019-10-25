@@ -4,7 +4,7 @@
  *             <ayuillarionov@ini.uzh.ch>
  *
  * Created   : Wed 13 Sep 2017 03:47:38 PM CEST
- * Modified  : Tue 23 Jul 2019 05:00:05 PM CEST
+ * Modified  : Fri 25 Oct 2019 03:28:57 PM CEST
  * Computer  : ZVPIXX
  * System    : Linux 4.4.0-93-lowlatency x86_64 x86_64
  *
@@ -94,7 +94,7 @@ static PacketData packetData;
 static void (*packetRecvCallbackFn)(const PacketData*);   // parse incoming data from XPC
 //static void (*packetSendCallbackFn)(const void*); // send sensor data to XPC
 
-bool parseNetworkAddress(const char* str, NetworkAddress* addr) {
+bool parseNetworkAddress(const char *str, NetworkAddress *addr) {
 	char *ptr1 = NULL, *ptr2 = NULL;
 	char interface[MAX_INTERFACE_LENGTH];
 	char host[MAX_HOST_LENGTH];
@@ -154,7 +154,7 @@ bool isValidIpAddress(const char *ipAddress) {
 	return result == 1;
 }
 
-void setNetworkAddress(NetworkAddress* addr, const char *interface, const char* host, unsigned int port) {
+void setNetworkAddress(NetworkAddress *addr, const char *interface, const char *host, unsigned int port) {
 	strncpy(addr->interface, interface, MAX_INTERFACE_LENGTH-1);
 	addr->interface[MAX_INTERFACE_LENGTH-1] = '\0';
 	strncpy(addr->host, host, MAX_HOST_LENGTH-1);
@@ -163,7 +163,7 @@ void setNetworkAddress(NetworkAddress* addr, const char *interface, const char* 
 }
 
 char netStrBuf[MAX_INTERFACE_LENGTH + MAX_HOST_LENGTH + 10];
-const char * getNetworkAddressAsString(const NetworkAddress *addr) {
+const char *getNetworkAddressAsString(const NetworkAddress *addr) {
 	char *bufPtr = netStrBuf;
 
 	if ( strlen(addr->interface) == 0 )
@@ -365,11 +365,11 @@ static void networkThreadCleanup(void *arg) {
 }
 
 // Start Network Thread
-//int networkThreadStart(const NetworkAddress* recv_addr, const NetworkAddress *send_addr, const (void*)arg) {
-int networkThreadStart(const NetworkAddress* recv_addr, const NetworkAddress *send_addr) {
+//int networkThreadStart(const NetworkAddress *recv_addr, const NetworkAddress *send_addr, const (void*)arg) {
+int networkThreadStart(const NetworkAddress *recv_addr, const NetworkAddress *send_addr) {
 	// start local (recv) server
 	if (startServer(recv_addr) == NETWORK_ERROR_SETUP) {
-		fprintf(stderr, "Network: Could not start server\n");
+		logError("Network: Could not start server\n");
 		return NETWORK_ERROR_SETUP;
 	}
 
@@ -390,8 +390,13 @@ void networkThreadTerminate() {
 	void *res = NULL;
 	int status;
 	status = pthread_cancel(netThread.thread);     // send a cancellation request to the netTread
-	if (status != 0)
-		err_abort(status, "Network: Cancel thread");
+	if (status != 0) {
+		if (status == ESRCH) { // thread doesn't exist
+			err_print(status, "Network: Cancel thread");
+			return;
+		} else
+			err_abort(status, "Network: Cancel thread");
+	}
 
 	status = pthread_join(netThread.thread, &res); // wait for thread termination
 	if (status != 0)

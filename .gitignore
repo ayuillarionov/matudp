@@ -1,3 +1,6 @@
+trialLogger_exp/
+udp-mex-receiver_exp/
+
 # Ignore directories and tags file
 sensorsLogger/
 save/

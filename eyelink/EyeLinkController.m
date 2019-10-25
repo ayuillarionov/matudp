@@ -5,7 +5,7 @@ classdef EyeLinkController < handle
     eye_used = -1;             % 0 (LEFT_EYE), 1 (RIGHT_EYE), 2 (BINOCULAR), -1 (ERROR)
     
     evt                        % FSAMPLE, most recent float sample
-    raw                        % raw sample data from GetFloatDataRaw
+    raw                        % raw sample data from GetFloatDataRaw or GetNewestFloatDataRaw
   end
   
   properties
@@ -131,7 +131,7 @@ classdef EyeLinkController < handle
       fprintf(' ==> Eyelink : Stop recording\n');
     end
     
-    function status = getFloatSample(elc)
+    function status = getNewestFloatSample(elc)
       status = -1;
       
       if ~elc.eli.dummymode && (Eyelink('IsConnected') > 0)
@@ -178,12 +178,29 @@ classdef EyeLinkController < handle
       end
     end
     
+    function status = getNewestFloatSampleRaw(elc)
+      status = -1;
+      
+      if ~elc.eli.dummymode && (Eyelink('IsConnected') > 0)
+        error = Eyelink('CheckRecording');
+        if error == 0
+          status = Eyelink('NewFloatSampleAvailable');
+        end
+        if ( error == 0 && status > 0 )
+          % get the copy of the most recent float sample in the form of an event structure
+          [elc.evt, elc.raw] = Eyelink('NewestFloatSampleRaw', elc.eye_used);
+        end
+      else
+        elc.eli.close();
+      end
+    end
+    
     function [time, gazeX, gazeY, status] = getGazePosition(elc)
       time = NaN('single'); gazeX = NaN(1,2,'double'); gazeY = NaN(1,2,'double');
       
       % update the copy of most resent gaze position
       % returns -1 if none or error, 0 if old, 1 if new
-      status = elc.getFloatSample();
+      status = elc.getNewestFloatSample();
       
       if ~isempty(fieldnames(elc.evt))
         if (elc.eye_used ~= -1) % do we know which eye to use yet?

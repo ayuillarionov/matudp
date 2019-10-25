@@ -16,17 +16,19 @@
 //      For mex compilation: mex -lrt udpFileWriter.cpp -Ic:\users\gilja\desktop\Pre-built.2\include ws2_32.lib -lpthreadVC2 -Lc:\users\gilja\desktop\Pre-built.2\lib\x64\ -DWIN32
 //      To run and compile we need the win32-pthread library, specifically pthreadVC2 if we're using Visual Studio to compile.  To run, we copy the DLL to c:\windows\system32
 
-#include "math.h"
-#include "mex.h"   //--This one is required
+#include <pthread.h> // unix POSIX multi-threaded
 
-#include <string.h>
-#include <pthread.h>
-#include <stdio.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <ctype.h>
-#include <unistd.h>
-#include <time.h>
+#include <stdio.h>   // C library to perform Input/Output operations
+#include <stdint.h>  // exact-width integer types
+#include <stdlib.h>  // EXIT_FAILURE, EXIT_SUCCESS, malloc etc.
+
+#include "math.h"    // various mathematical functions (e.g. floor) and macro HUGE_VAL
+#include <string.h>  // for strcmp(), strchr(), strncpy() and memset 
+#include <ctype.h>   // functions testing and mapping characters (e.g. toupper)
+#include <unistd.h>  // UNIX standard symbolic constants and types, e.g. NULL
+#include <time.h>    // date and time information
+
+#include "mex.h"     //--This one is required
 
 // DATA LOGGER PARSING HEADERS
 #include "../trialLogger/src/utils.h"
@@ -44,61 +46,68 @@ int mex_call_counter = 0;
 static bool startUdpMexServer();
 static void stopUdpMexServer();
 static void cleanupAtExit();
-int strcmpi(const char*,const char*); // AYuI: case insensitive string compare
-unsigned convertInputArgsToBytestream(uint8_t*, unsigned, int, const mxArray**);
+int strcmpi(const char*, const char*); // case insensitive string compare
+int convertInputArgsToBytestream(uint8_t*, unsigned, int, const mxArray**);
 
 void dataFlushThreadStart();
 void dataFlushThreadTerminate();
-void *dataFlushThreadWorker(void*);
+static void *dataFlushThreadWorker(void*);
 
 static NetworkAddress recv;
 static NetworkAddress send;
 
 // LOCAL DEFINITIONS
 void cleanupAtExit() {
-	stopUdpMexServer();
+	if (mexIsLocked()) {
+		mexPrintf("udpMexReceiver: Cleaning ...\n");
+		stopUdpMexServer();
+		mexUnlock();
+	}
 }
 
 static bool startUdpMexServer() {
-    char errMsg[MAX_HOST_LENGTH + 50];
-    bool success = false;
+	char errMsg[MAX_HOST_LENGTH + 50];
+	bool success = false;
 
-    logInfo("Starting server...\n");
-    mexLock(); // AYuI: prohibit clearing a MEX file from memory, when clear MATLAB workspace
+	logInfo("udpMexReceiver: Starting server...\n");
+	mexLock(); // prohibit clearing a MEX file from memory, when clear MATLAB workspace
 
-    // initialize signal processing buffers and group lookup trie
-    // true means wait until next trial is received to start buffering
-    // false means start buffering immediately, even if next trial hasn't been received
-    controlInitialize(true);
+	// initialize signal processing buffers and group lookup trie
+	// true means wait until next trial is received to start buffering
+	// false means start buffering immediately, even if next trial hasn't been received
+	controlInitialize(true);
 
-    // install the callback function for received packet data
-    networkSetPacketRecvCallbackFn(&processReceivedPacketData);
+	// install the callback function to process incoming packet data
+	networkSetPacketRecvCallbackFn(&processReceivedPacketData);
 
-    success = networkThreadStart(&recv, &send) == 0;
+	success = networkThreadStart(&recv, &send) == 0;
 
-    if (!success) {
-        controlTerminate();   // freeDataLoggerStatus
-        mexUnlock();          // allowed to clear MEX file from memory
-        snprintf(errMsg, MAX_HOST_LENGTH + 50, "Could not start network receiver at %s",
-                getNetworkAddressAsString(&recv));
-        mexErrMsgTxt(errMsg); // display error message and return to MATLAB prompt
-        return false;
-    }
+	if (!success) {
+		controlTerminate();   // freeDataLoggerStatus
+		mexUnlock();          // allowed to clear MEX file from memory
+		snprintf_nowarn(errMsg, MAX_HOST_LENGTH + 50, "Could not start network receiver at %s",
+				getNetworkAddressAsString(&recv));
+		mexWarnMsgIdAndTxt("MATLAB:udpMexReceiver:networkThreadStart",
+				errMsg); // display error message and return to MATLAB prompt
+		return false;
+	}
 
-    networkOpenSendSocket(&send);
-    //dataFlushThreadStart();
-    return true;
+
+	//networkOpenSendSocket(&send); // NOTE: already created by networkThreadStart
+	
+	//dataFlushThreadStart();
+
+	return true;
 }
 
 static void stopUdpMexServer() {
-	logInfo("Stopping server!\n");
+	logInfo("udpMexReceiver: Stopping server\n");
 	//dataFlushThreadTerminate();
 	networkThreadTerminate();
-	networkCloseSendSocket();
 	controlTerminate();
 }
 
-// Compare Strings Without Case Sensitivity
+// Compare strings without case sensitivity
 int strcmpi(const char *s1,const char *s2) {
 	int val;
 	while( (val = toupper(*s1) - toupper(*s2))==0 ) {
@@ -112,249 +121,259 @@ int strcmpi(const char *s1,const char *s2) {
 	return val;
 }
 
-void *p;
+//void *p;
 
 void mexFunction(
-        int           nlhs,           /* number of expected outputs */
-        mxArray       *plhs[],        /* array of pointers to output arguments */
-        int           nrhs,           /* number of inputs */
-        const mxArray *prhs[]         /* array of pointers to input arguments */
-        ) {
-    //char * validCommands[] = {"start", "stop", "retrieveGroups", "pollGroups"};
-    //unsigned nValidCommands = 4;
+		int           nlhs,           // Number of expected mxArray output arguments, specified as an integer.
+		mxArray       *plhs[],        // Array of pointers to the expected mxArray output arguments.
+		int           nrhs,           // Number of input mxArrays, specified as an integer.
+		const mxArray *prhs[]         // Array of pointers to the mxArray input arguments.
+		) {
+	//unsigned nValidCommands = 4;
+	//char * validCommands[] = {"start", "stop", "retrieveGroups", "pollGroups"};
 
-    char fun[80+1];
-    char tempAddressString[MAX_HOST_LENGTH];
-    double tempPort;
-    bool success = false;
+	char fun[80 + 1];
+	char tempAddressString[MAX_HOST_LENGTH];
+	double tempPort;
 
-    uint8_t sendBuffer[MAX_PACKET_LENGTH];
-    size_t totalBytesSend;
+	bool success = false;
 
-    // register cleanup function
-    mexAtExit(cleanupAtExit);
+	uint8_t sendBuffer[MAX_PACKET_LENGTH];
+	int totalBytesSend;
 
-    if (mex_call_counter ==0) {
-        // first call
-        mex_call_counter++;
-    }
+	// Register cleanup function to call when MEX function clears or MATLAB terminates
+	mexAtExit(cleanupAtExit);
 
-    //mexPrintf("UdpMex: sleeping a bit\n");
-    /*
-    struct timespec req;
-    req.tv_sec = 0;
-    req.tv_nsec = 10000000; // sleep for 10 ms
-    nanosleep(&req, &req);
-    */
+	if (mex_call_counter == 0) {
+		// first call
+		mex_call_counter++;
+	}
 
-    if ( (nrhs >= 1) && mxIsChar(prhs[0]) ) {
-        // GET FIRST ARGUMENT -- The "function" name
-        mxGetString(prhs[0],fun,80);
+	/*
+	logInfo("UdpMexReceiver: sleeping a bit\n");
+	struct timespec req;
+	req.tv_sec = 0;
+	req.tv_nsec = 10000000; // sleep for 10 ms
+	nanosleep(&req, &req);
+	*/
 
-        if(strcmpi(fun, "start")==0) {
-            if(mexIsLocked()) {
-                mexErrMsgTxt("UdpMex: already started");
-                return;
-            }
+	if ( (nrhs >= 1) && mxIsChar(prhs[0]) ) {
+		// GET FIRST ARGUMENT -- The "function" name
+		mxGetString(prhs[0], fun, 80);
 
-            if(nrhs != 3) {
-                mexErrMsgTxt("UdpMex: usage: udpMexReceiver('start', receiveIPAndPort, sendIPAndPort)");
-                return;
-            }
+		if (strcmpi(fun, "start") == 0) {
+			if (mexIsLocked()) {
+				mexWarnMsgIdAndTxt("MATLAB:udpMexReceiver",
+						"udpMexReceiver: already started");
+				return;
+			}
 
-            // parse receive ip address
-            success = false;
-            if(mxIsChar(prhs[1])) {
-                mxGetString(prhs[1], tempAddressString, MAX_HOST_LENGTH);
-                success = parseNetworkAddress(tempAddressString, &recv);
+			if (nrhs != 3) {
+				mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:usage",
+						"Usage: udpMexReceiver('start', receiveIPAndPort, sendIPAndPort)");
+				return;
+			}
 
-            } else if(mxIsNumeric(prhs[1])) {
-                // parse directly as port number
-                tempPort = mxGetScalar(prhs[1]);
-                snprintf(tempAddressString, MAX_HOST_LENGTH, "%d", (int)floor(tempPort));
-                setNetworkAddress(&recv, "", "", tempPort);
-                success = true;
-            }
-            if(!success) {
-                mexErrMsgTxt("UdpMex: receiveIPAndPort must be 'ip:port' or numeric port");
-                return;
-            }
+			// parse receive ip address
+			success = false;
+			if (mxIsChar(prhs[1])) {
+				mxGetString(prhs[1], tempAddressString, MAX_HOST_LENGTH);
+				success = parseNetworkAddress(tempAddressString, &recv);
+			} else if (mxIsNumeric(prhs[1])) {
+				// parse directly as port number with no interface or host
+				tempPort = mxGetScalar(prhs[1]);
+				snprintf(tempAddressString, MAX_HOST_LENGTH, "%d", (int)floor(tempPort));
+				setNetworkAddress(&recv, "", "", tempPort);
+				success = true;
+			}
+			if (!success) {
+				mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:parseReceiveNetworkAddress",
+						"udpMexReceiver: receiveIPAndPort must be 'ip:port' or numeric port");
+				return;
+			}
 
-            // parse send ip address
-            success = false;
-            if(mxIsChar(prhs[2])) {
-                mxGetString(prhs[2], tempAddressString, MAX_HOST_LENGTH);
-                success = parseNetworkAddress(tempAddressString, &send);
+			// parse send ip address
+			success = false;
+			if (mxIsChar(prhs[2])) {
+				mxGetString(prhs[2], tempAddressString, MAX_HOST_LENGTH);
+				success = parseNetworkAddress(tempAddressString, &send);
+			} else if (mxIsNumeric(prhs[1])) {
+				// parse directly as port number with no interface or host
+				tempPort = mxGetScalar(prhs[2]);
+				snprintf(tempAddressString, MAX_HOST_LENGTH, "%d", (int)floor(tempPort));
+				setNetworkAddress(&send, "", "", tempPort);
+				success = true;
+			}
+			if (!success) {
+				mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:parseSendNetworkAddress",
+						"udpMexReceiver: sendIPAndPort must be 'interface:host:port', 'host:port' or numeric port");
+				return;
+			}
 
-            } else if(mxIsNumeric(prhs[2])) {
-                // parse directly as port number with no interface or host
-                tempPort = mxGetScalar(prhs[2]);
-                snprintf(tempAddressString, MAX_HOST_LENGTH, "%d", (int)floor(tempPort));
-                setNetworkAddress(&send, "", "", tempPort);
-                success = true;
-            }
-            if(!success) {
-                mexErrMsgTxt("UdpMex: sendIPAndPort must be 'interface:host:port', 'host:port', numeric port");
-                return;
-            }
+			// bind socket
+			mexPrintf("udpMexReceiver: Starting server at %s\n", getNetworkAddressAsString(&recv));
+			success = startUdpMexServer();
+			if (!success)
+				mexUnlock();
 
-            // bind socket
-            mexPrintf("UdpMex: Starting server at %s\n", getNetworkAddressAsString(&recv));
-            success = startUdpMexServer();
-            if(!success)
-                mexUnlock();
+			return;
+		} else if (strcmpi(fun, "stop") == 0) {
+			if (mexIsLocked()) {
+				mexPrintf("udpMexReceiver: Stopping server\n");
+				stopUdpMexServer();
+				mexUnlock();
+				return;
+			} else { 
+				mexPrintf("udpMexReceiver: already stopped\n");
+			}
+		} else if (strcmpi(fun, "send") == 0) {
+			if (!mexIsLocked()) {
+				mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:send",
+						"udpMexReceiver: call with 'start' to bind socket first.");
+				return;
+			}
 
-            return;
+			// send data back, prepended with prefix, theni loop through input arguments and byte pack them
+			if (nrhs < 2) {
+				mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:send",
+						"udpMexReceiver: call with subsequent arguments to send");
+				return;
+			}
 
-        } else if(strcmpi(fun,"stop")==0) {
-            if (mexIsLocked()) {
-                mexPrintf("UdpMex: stopping\n");
-                stopUdpMexServer();
-                mexUnlock();
+			// convert input arguments to bytes to send
+			totalBytesSend = convertInputArgsToBytestream(sendBuffer, MAX_PACKET_LENGTH, nrhs, prhs);
 
-                return;
-            } else {
-                mexPrintf("UdpMex: already stopped\n");
-            }
+			if (totalBytesSend == -1) {
+				mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:send",
+						"udpMexReceiver: Cannot fit data into one packet!");
+				return;
+			}
 
-        } else if(strcmpi(fun, "send") == 0) {
-            if(!mexIsLocked()) {
-                mexErrMsgTxt("UdpMex: call with 'start' to bind socket first.");
-                return;
-            }
+			if (!networkSend((char*)sendBuffer, (unsigned)totalBytesSend)) {
+				mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:send",
+						"udpMexReceiver: Sendto error");
+				return;
+			}
+		} else if (strcmpi(fun, "retrieveGroups") == 0) {
+			if (!mexIsLocked()) {
+				mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:retrieveGroups",
+						"udpMexReceiver: call with 'start' to bind socket first.");
+				return;
+			}
 
-            // send data back, prepended with prefix, then
-            // loop through input arguments and byte pack them
-            if(nrhs < 2) {
-                mexErrMsgTxt("UdpMex: call with subsequent arguments to send");
-                return;
-            }
+			// retrieve groups(i) array from current trial, flush data
+			if (nlhs != 1) {
+				mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:retrieveGroups",
+						"udpMexReceiver: no output arguments");
+				return;
+			}
 
-            // convert input arguments to bytes to send
-            totalBytesSend = convertInputArgsToBytestream(sendBuffer, MAX_PACKET_LENGTH, nrhs, prhs);
+			// send groups on buffer out
+			plhs[0] = buildGroupsArrayForCurrentTrial(true);
+		} else if (strcmpi(fun, "pollGroups") == 0) {
+			if (!mexIsLocked()) {
+				mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:pollGroups",
+						"udpMexReceiver: call with 'start' to bind socket first.");
+				return;
+			}
 
-            if(totalBytesSend == -1) {
-                mexErrMsgTxt("UdpMex: Cannot fit data into one packet!");
-                return;
-            }
+			if (nlhs != 1) {
+				mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:pollGroups",
+						"udpMexReceiver: no output arguments");
+				return;
+			}
 
-            if(!networkSend((char*)sendBuffer, totalBytesSend)) {
-                mexErrMsgTxt("UdpMex: Sendto error");
-                return;
-            }
+			// send groups on buffer out
+			plhs[0] = buildGroupsArrayForCurrentTrial(false);
+		} else if (strcmpi(fun, "retrieveCompleteTrial") == 0) {
+			if (!mexIsLocked()) {
+				mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:retrieveCompleteTrial",
+						"udpMexReceiver: call with 'start' to bind socket first.");
+				return;
+			}
 
-        } else if(strcmpi(fun,"retrieveGroups")==0) {
-            if(!mexIsLocked()) {
-                mexErrMsgTxt("UdpMex: call with 'start' to bind socket first.");
-                return;
-            }
+			if (nlhs != 2) {
+				mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:retrieveCompleteTrial",
+						"udpMexReceiver: two outputs required: [trial, meta]");
+				return;
+			}
 
-            // retrieve groups(i) array from current trial, flush data
-            if(nlhs != 1) {
-                mexErrMsgTxt("UdpMex: no output arguments");
-                return;
-            }
+			// send groups on buffer out
+			buildTrialStructForLastCompleteTrial(&(plhs[0]), &(plhs[1]));
+		} else if (strcmpi(fun, "pollCurrentTrial") == 0) {
+			if (!mexIsLocked()) {
+				mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:pollCurrentTrial",
+						"udpMexReceiver: call with 'start' to bind socket first.");
+				return;
+			}
 
-            // send groups on buffer out
-            plhs[0] = buildGroupsArrayForCurrentTrial(true);
+			if (nlhs != 2) {
+				mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:pollCurrentTrial",
+						"udpMexReceiver: two outputs required: [trial, meta]");
+				return;
+			}
 
-        } else if(strcmpi(fun, "pollGroups")==0) {
-            if(!mexIsLocked()) {
-                mexErrMsgTxt("UdpMex: call with 'start' to bind socket first.");
-                return;
-            }
+			// send groups on buffer out
+			buildTrialStructForCurrentTrial(&(plhs[0]), &(plhs[1]));
+		} else {
+			mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:invalidCommandSyntax",
+					"udpMexReceiver: invalid command syntax!");
+			return;
+		}
+	} else {
+		mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:commandArgumentUsage",
+				"udpMexReceiver: please call with command argument "
+				"('start', 'stop', 'receiveGroups', 'pollGroups', 'retrieveCompleteTrial', 'pollCurrentTrial')");
+	}
 
-            if(nlhs != 1) {
-                mexErrMsgTxt("UdpMex: no output arguments");
-                return;
-            }
-
-            // send groups on buffer out
-            plhs[0] = buildGroupsArrayForCurrentTrial(false);
-
-        } else if(strcmpi(fun, "retrieveCompleteTrial")==0) {
-            if(!mexIsLocked()) {
-                mexErrMsgTxt("UdpMex: call with 'start' to bind socket first.");
-                return;
-            }
-
-            if(nlhs != 2) {
-                mexErrMsgTxt("UdpMex: two outputs required: [trial, meta]");
-                return;
-            }
-
-            // send groups on buffer out
-            buildTrialStructForLastCompleteTrial(&(plhs[0]), &(plhs[1]));
-
-        } else if(strcmpi(fun, "pollCurrentTrial")==0) {
-            if(!mexIsLocked()) {
-                mexErrMsgTxt("UdpMex: call with 'start' to bind socket first.");
-                return;
-            }
-
-            if(nlhs != 2) {
-                mexErrMsgTxt("UdpMex: two outputs required: [trial, meta]");
-                return;
-            }
-
-            // send groups on buffer out
-            buildTrialStructForCurrentTrial(&(plhs[0]), &(plhs[1]));
-
-        } else {
-            mexErrMsgTxt("UdpMex: invalid syntax!");
-            return;
-        }
-    } else {
-        mexErrMsgTxt("UdpMex: please call with command argument ('start', 'stop', 'pollGroups', 'receiveGroups')");
-    }
-
-    return;
+	return;
 }
 
-unsigned convertInputArgsToBytestream(uint8_t* buffer, unsigned sizebuf, int nrhs, const mxArray ** prhs) {
-    uint8_t* pSendBufferWrite;
-    unsigned bytesThisArg;
+int convertInputArgsToBytestream(uint8_t *buffer, unsigned sizebuf, int nrhs, const mxArray **prhs) {
+	uint8_t *pSendBufferWrite;
+	size_t bytesThisArg;
 
-    memset(buffer, 0, sizebuf);
-    pSendBufferWrite = buffer;
+	memset(buffer, 0, sizebuf);
+	pSendBufferWrite = buffer;
 
-    // then loop through args and bytepack
-    for(int iArg = 1; iArg < nrhs; iArg++) {
-        // check for buffer overrun
-        if(pSendBufferWrite > buffer + sizebuf)
-            return -1;
+	// loop through args and bytepack
+	for (int iArg = 1; iArg < nrhs; iArg++) {
+		// check for buffer overrun
+		if (pSendBufferWrite > buffer + sizebuf)
+			return -1;
 
-        if (mxIsChar(prhs[iArg]))
-            bytesThisArg = mxGetNumberOfElements(prhs[iArg]);
-        else
-            bytesThisArg = mxGetElementSize(prhs[iArg])*mxGetNumberOfElements(prhs[iArg]);
+		if (mxIsChar(prhs[iArg]))
+			bytesThisArg = mxGetNumberOfElements(prhs[iArg]);
+		else
+			bytesThisArg = mxGetElementSize(prhs[iArg])*mxGetNumberOfElements(prhs[iArg]);
 
-        if(pSendBufferWrite + bytesThisArg >= buffer + MAX_PACKET_LENGTH - 1) {
-            mexErrMsgTxt("Data too large to fit into a packet");
-            return -1;
-        }
+		if (pSendBufferWrite + bytesThisArg >= buffer + MAX_PACKET_LENGTH - 1) {
+			mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:convertInputArgsToBytestream",
+					"iudpMexReceiver: data too large to fit into a packet");
+			return -1;
+		}
 
-        if (mxIsChar(prhs[iArg])) {
-            // copy string directly as ASCII since char in Matlab is actually 2-byte unicode (UTF-16?)
-            mxGetString(prhs[iArg], (char*)pSendBufferWrite,
-                buffer + MAX_PACKET_LENGTH - pSendBufferWrite - 2);
-        } else {
-            memcpy(pSendBufferWrite, mxGetData(prhs[iArg]), bytesThisArg);
-        }
+		if (mxIsChar(prhs[iArg])) {
+			// copy string directly as ASCII since char in MATLAB is actually 2-byte unicode (UTF-16?)
+			mxGetString(prhs[iArg], (char*)pSendBufferWrite,
+					buffer + MAX_PACKET_LENGTH - pSendBufferWrite - 2);
+		} else {
+			memcpy(pSendBufferWrite, mxGetData(prhs[iArg]), bytesThisArg);
+		}
 
-        pSendBufferWrite += bytesThisArg;
-    }
+		pSendBufferWrite += bytesThisArg;
+	}
 
-    return pSendBufferWrite - buffer;
+	return (int)(pSendBufferWrite - buffer);
 }
 
 void dataFlushThreadStart() {
-    // Start Network Receive Thread
-    int rc = pthread_create(&dataFlushThread, NULL, dataFlushThreadWorker, NULL);
-    if (rc) {
-        logError("ERROR! Return code from pthread_create() is %d\n", rc);
-        exit(-1);
-    }
+	// Start Network Receive Thread
+	int status = pthread_create(&dataFlushThread, NULL, dataFlushThreadWorker, NULL);
+	if (status) {
+		err_print(status, "udpMexReceiver: Return code from pthread_create()");
+		exit(-1);
+	}
 }
 
 void dataFlushThreadTerminate() {
@@ -362,10 +381,10 @@ void dataFlushThreadTerminate() {
 	pthread_join(dataFlushThread, NULL);
 }
 
-void *dataFlushThreadWorker(void *dummy) {
+static void *dataFlushThreadWorker(void *dummy) {
 	unsigned nSecondsExpire = 10;
 	struct timespec req;
-	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL); // thread is cancelable (default)
 
 	while (1) {
 		//logInfo("Cleaning old data\n");

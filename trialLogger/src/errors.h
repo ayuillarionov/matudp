@@ -21,11 +21,21 @@
 #ifdef DEBUG
 	# define DPRINTF(arg) logInfo arg
 #else
-	# define DPRINTF(arg)
+	# define DPRINTF(arg) (void)0
 #endif
 
 // avoid gcc -Wformat-truncation [...] warns
 #define snprintf_nowarn(...) (snprintf(__VA_ARGS__) < 0 ? abort() : (void)0)
+
+// MEX API Is Not Thread Safe:
+// https://www.mathworks.com/help/matlab/matlab_external/mex-api-is-not-thread-safe.html
+#ifdef MATLAB_MEX_FILE
+  #define logInfo(...) (void)0
+  #define logError(...) fprintf(stderr, __VA_ARGS__)
+#else
+  #define logInfo printf
+  #define logError(...) fprintf(stderr, __VA_ARGS__)
+#endif
 
 /*
  * NOTE: the "do {" ... "} while (0);" bracketing around the macros
@@ -43,19 +53,52 @@
  * a ";" following the ")" in the do...while construct, err_abort and
  * errno_abort can be used as if they were function calls.
  */
-#define err_print(code, text) \
-	fprintf (stderr, "%s (errorcode = %d) at \"%s\":%d : %s\n", \
-			text, code, __FILE__, __LINE__, strerror (code))
-#define err_abort(code, text) do { \
-	err_print(code, text); \
-	abort (); \
-	} while (0)
-#define errno_print(text) \
-	fprintf (stderr, "%s (errno = %d) at \"%s\":%d : %s\n", \
-			text, errno, __FILE__, __LINE__, strerror (errno))
-#define errno_abort(text) do { \
-	errno_print(text); \
-	abort (); \
-	} while (0)
+#ifdef MATLAB_MEX_FILE
+	#define err_print(code, text) \
+		char str[200]; \
+		snprintf_nowarn(str, 200, "%s (errorcode = %d) at \"%s\":%d : %s\n", \
+				text, code, __FILE__, __LINE__, strerror (code)); \
+		mexErrMsgIdAndTxt("MATLAB:udpMexReceiver", str)
+#else
+	#define err_print(code, text) \
+		fprintf(stderr, "%s (errorcode = %d) at \"%s\":%d : %s\n", \
+				text, code, __FILE__, __LINE__, strerror (code))
+#endif
+
+#ifdef MATLAB_MEX_FILE
+	#define err_abort(code, text) do { \
+		err_print(code, text); \
+		mexUnlock(); \
+		} while (0)
+#else
+	#define err_abort(code, text) do { \
+		err_print(code, text); \
+		abort (); \
+		} while (0)
+#endif
+
+#ifdef MATLAB_MEX_FILE
+	#define errno_print(text) \
+		char str[200]; \
+		snprintf_nowarn(str, 200, "%s (errno = %d) at \"%s\":%d : %s\n", \
+			text, errno, __FILE__, __LINE__, strerror(errno)) ; \
+		mexErrMsgIdAndTxt("MATLAB:udpMexReceiver", str)
+#else
+	#define errno_print(text) \
+		fprintf(stderr, "%s (errno = %d) at \"%s\":%d : %s\n", \
+				text, errno, __FILE__, __LINE__, strerror(errno))
+#endif
+
+#ifdef MATLAB_MEX_FILE
+	#define errno_abort(text) do { \
+		errno_print(text); \
+		mexUnlock(); \
+		} while (0)
+#else
+	#define errno_abort(text) do { \
+		errno_print(text); \
+		abort (); \
+		} while (0)
+#endif
 
 #endif /* __ERRORS_H_ */

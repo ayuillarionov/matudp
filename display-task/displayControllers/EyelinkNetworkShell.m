@@ -154,11 +154,13 @@ classdef EyelinkNetworkShell < DisplayController
       %}
       
       % get raw data if Eyelink is recording
-      %if ns.eli.isOpen
-        status = ns.elc.getFloatSampleRaw();
+      if ns.eli.isOpen
+        status = ns.elc.getNewestFloatSampleRaw();
         
-        if (status == ns.elc.eli.el.SAMPLE_TYPE) && ...
-            (ns.elc.evt.input ~= 32768 && any(ns.elc.evt.hdata(1:4) ~= ns.elc.eli.el.MISSING_DATA))
+        %if (status == ns.elc.eli.el.SAMPLE_TYPE) && ...
+        %    any(ns.elc.evt.hdata(1:4) ~= ns.elc.eli.el.MISSING_DATA)
+        if (status > 0) && ...
+            any(ns.elc.evt.hdata(1:4) ~= 0)
           disp(ns.elc.evt)
           disp(ns.elc.raw)
           
@@ -168,8 +170,9 @@ classdef EyelinkNetworkShell < DisplayController
           
           fprintf(ns.fileID,'%12d %12d %12d %12d %12d %12d %12d %12d %12d %12d\n', time, input, hdata);
         end
-      %end
+      end
 
+      %{
       % show Eyes on the screen if Eyelink is recording
       if ns.showEyes && ns.eli.isOpen
         % get the copy of most resent gaze position, if Eyelink is recording
@@ -199,6 +202,7 @@ classdef EyelinkNetworkShell < DisplayController
         ns.eyeLeft.hide();
         ns.eyeRight.hide();
       end
+      %}
       
     end
     

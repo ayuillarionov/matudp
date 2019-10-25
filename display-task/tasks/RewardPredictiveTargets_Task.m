@@ -49,6 +49,7 @@ classdef RewardPredictiveTargets_Task < DisplayTask
             task.dc.netLog.hide();
         end
         
+        
         % called when task is becoming inactive
         function cleanup(task, data) %#ok<INUSD>
           if task.dc.showDebugLogs
@@ -76,7 +77,7 @@ classdef RewardPredictiveTargets_Task < DisplayTask
                 task.eye.yc = eyeInfo.eyeY(end);
                 task.eye.seen = eyeInfo.eyeSeen;
                 if ~strcmp(task.eye.seen, 'NOT_SEEN')
-                  task.eye.show();
+                  %task.eye.show();
                 end
             end
         end
@@ -95,6 +96,9 @@ classdef RewardPredictiveTargets_Task < DisplayTask
         function buildCommandMap(task)
             map = containers.Map('KeyType', 'char', 'ValueType', 'any'); % Map values to unique keys
             
+            % Mask State
+            map('MaskAcquired') = @task.maskAcquired;
+            
             % TaskControl
             map('TaskPaused') = @task.pause;
             map('StartTask') = @task.start;
@@ -109,6 +113,9 @@ classdef RewardPredictiveTargets_Task < DisplayTask
             map('RewardTonePlay') = @task.rewardTonePlay;
             map('ITI') = @task.iti;
             
+            % TrialFailure
+            map('FailureEdeNotSeen') = @task.failureEyeNotSeen;
+            
             task.commandMap = map;
         end
         
@@ -120,14 +127,14 @@ classdef RewardPredictiveTargets_Task < DisplayTask
         end
         
         function start(task, ~) % 'StartTask'
-            task.eye.show();
+            %task.eye.show();
             task.photobox.off();
         end
         
         function initTrial(task, data) % 'InitTrial'
             task.trialFailed = false;
             
-            task.eye.show();
+            %task.eye.show();
             
             % -- screen background
             bColor = double(data.P.backgroundColorRGBA)'/255;
@@ -149,6 +156,14 @@ classdef RewardPredictiveTargets_Task < DisplayTask
             task.dc.log('Initialize Trial');
         end
         
+        function maskAcquired(task, data) %#ok<INUSD> % 'MaskAcquired'
+          task.sound.playMaskAcquired();
+          
+          task.photobox.toggle();
+          
+          task.dc.log('Mask Acquired');
+        end
+
         function targetNeutralOn(task, data) % 'TargetNeutralOn'
             fColor = double(data.P.targetNeutralColorRGBA)'/255;
             task.target.borderColor = fColor;
@@ -201,6 +216,14 @@ classdef RewardPredictiveTargets_Task < DisplayTask
             task.photobox.off();
             
             task.dc.log('ITI');
+        end
+        
+        function failureEyeNotSeen(task, data) %#ok<INUSD>
+          task.sound.playFailure();
+          
+          task.photobox.toggle();
+          
+          task.dc.log('Eye Not Seen');
         end
     end
     
