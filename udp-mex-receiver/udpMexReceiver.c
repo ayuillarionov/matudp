@@ -315,6 +315,23 @@ void mexFunction(
 
 			// send groups on buffer out
 			buildTrialStructForCurrentTrial(&(plhs[0]), &(plhs[1]));
+		} else if (strcmpi(fun, "getControlStatus") == 0) {
+			if (!mexIsLocked()) {
+				mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:getControlStatus",
+						"udpMexReceiver: call with 'start' to bind socket first.");
+				return;
+			}
+
+			if (nrhs != 1) {
+				mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:maxrhs",
+						"udpMexReceiver: No additional input arguments required.");
+			}
+			if (nlhs > 1) {
+				mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:maxlhs",
+						"Too many output arguments.");
+			}
+
+			plhs[0] = buildControlStatusStructForCurrentTrial();
 		} else {
 			mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:invalidCommandSyntax",
 					"udpMexReceiver: invalid command syntax!");
@@ -323,7 +340,8 @@ void mexFunction(
 	} else {
 		mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:commandArgumentUsage",
 				"udpMexReceiver: please call with command argument "
-				"('start', 'stop', 'receiveGroups', 'pollGroups', 'retrieveCompleteTrial', 'pollCurrentTrial')");
+				"('start', 'stop', 'receiveGroups', 'pollGroups', "
+				"'retrieveCompleteTrial', 'pollCurrentTrial', 'getControlStatus')");
 	}
 
 	return;

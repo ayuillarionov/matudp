@@ -134,7 +134,7 @@ $(BUILD_DIR)/%.gdb.o: $(C_FILES) $(H_FILES_EXTERN) | $(BUILD_DIR)
 $(MEX_FILE): $(O_FILES) $(O_FILES_EXTERN) | $(BIN_DIR)
 	$(ECHO) "Linking $@" $(ECHO_END)
 	$(LD) $(OPTFLAG) -o $@ $(O_FILES) $(O_FILES_EXTERN) $(LDFLAGS) $(LDFLAGS_MEX)
-	strip $@
+	strip -x $@
 	$(ECHO) "Built $@ successfully!" $(ECHO_END)
 
 $(GDB_MEX_FILE): $(GDBO_FILES) $(GDBO_FILES_EXTERN) | $(BIN_DIR)
@@ -153,7 +153,7 @@ ctags:
 	ctags --c-kinds=+px --fields=+aiS --extra=+q $(C_FILES) $(C_FILES_EXTERN) $(H_FILES_EXTERN)
 
 strip:
-	strip $(EXE)
+	strip -x $(EXE)
 
 # clean and delete executable
 clobber: clean

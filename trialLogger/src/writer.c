@@ -937,7 +937,6 @@ void addEventGroupFields(mxArray *mxTrial, mxArray *mxGroupMeta,
 }
 
 //////////// FOR UDP MEX INTERACE /////////////////
-
 mxArray *buildGroupsArrayForCurrentTrial(bool clearBuffers) {
 	// if we're going to clear this trial's data, make sure we don't continue
 	// to write into it anymore
@@ -1049,4 +1048,35 @@ mxArray *buildGroupsArrayForTrial(DataLoggerStatus *dlStatus, unsigned trialIdx,
 	}
 
 	return mxGroups;
+}
+
+mxArray *buildControlStatusStructForCurrentTrial(void) {
+	DataLoggerStatus *dlStatus = controlGetCurrentStatus();
+
+	int nFieldsGroup = 6;
+	const char *fieldNames[] = {"dataStore", "subject", "protocol", "protocolVersion", "currentTrial", "saveTag"};
+	mxArray *mxControlStatus = mxCreateStructMatrix(1, 1, nFieldsGroup, fieldNames); // 2-D structure array
+
+	mxSetFieldByNumber(mxControlStatus, 0, 0, mxCreateString(dlStatus->dataStore));
+	mxSetFieldByNumber(mxControlStatus, 0, 1, mxCreateString(dlStatus->subject));
+	mxSetFieldByNumber(mxControlStatus, 0, 2, mxCreateString(dlStatus->protocol));
+
+	mxArray* protocolVersion = mxCreateDoubleMatrix(1, 1, mxREAL); // 2-D, double-precision, floating-point array
+	mxArray* currentTrial    = mxCreateDoubleMatrix(1, 1, mxREAL);
+	mxArray* saveTag         = mxCreateDoubleMatrix(1, 1, mxREAL);
+
+#if MX_HAS_INTERLEAVED_COMPLEX // from R2017b
+	*mxGetDoubles(protocolVersion) = dlStatus->protocolVersion;
+	*mxGetDoubles(currentTrial)    = dlStatus->currentTrial;
+	*mxGetDoubles(saveTag)         = dlStatus->saveTag;
+#else
+	*mxGetPr(protocolVersion) = dlStatus->protocolVersion;
+	*mxGetPr(currentTrial)    = dlStatus->currentTrial;
+	*mxGetPr(saveTag)         = dlStatus->saveTag;
+#endif
+	mxSetFieldByNumber(mxControlStatus, 0, 3, protocolVersion);
+	mxSetFieldByNumber(mxControlStatus, 0, 4, currentTrial);
+	mxSetFieldByNumber(mxControlStatus, 0, 5, saveTag);
+
+	return mxControlStatus;
 }

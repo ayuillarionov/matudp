@@ -45,6 +45,8 @@ void signalWriterThreadTerminate();
 mxArray* buildGroupsArrayForTrial(DataLoggerStatus*, unsigned, bool);
 mxArray* buildGroupsArrayForCurrentTrial(bool);
 
+mxArray *buildControlStatusStructForCurrentTrial(void);
+
 void buildTrialStructForCurrentTrial(mxArray**, mxArray**);
 void buildTrialStructForLastCompleteTrial(mxArray**, mxArray**);
 
