@@ -315,9 +315,9 @@ void mexFunction(
 
 			// send groups on buffer out
 			buildTrialStructForCurrentTrial(&(plhs[0]), &(plhs[1]));
-		} else if (strcmpi(fun, "getControlStatus") == 0) {
+		} else if (strcmpi(fun, "getCurrentControlStatus") == 0) {
 			if (!mexIsLocked()) {
-				mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:getControlStatus",
+				mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:getCurrentControlStatus",
 						"udpMexReceiver: call with 'start' to bind socket first.");
 				return;
 			}
@@ -341,7 +341,7 @@ void mexFunction(
 		mexErrMsgIdAndTxt("MATLAB:udpMexReceiver:commandArgumentUsage",
 				"udpMexReceiver: please call with command argument "
 				"('start', 'stop', 'receiveGroups', 'pollGroups', "
-				"'retrieveCompleteTrial', 'pollCurrentTrial', 'getControlStatus')");
+				"'retrieveCompleteTrial', 'pollCurrentTrial', 'getCurrentControlStatus')");
 	}
 
 	return;

@@ -17,11 +17,8 @@ classdef DisplayController < handle
 
     catchErrors = true;
     suppressErrors = false;
-    
-    showDebugLogs = true; % show debugLogs on the desktop screen
   end
 
-  
   properties % debugScreenObjects
     logWidth
     logHeight
@@ -29,12 +26,22 @@ classdef DisplayController < handle
     logYOffset
     logXOffset
     
-    debugLog   % debugging log
-    objListLog % list of ScreenObjects currently displayed
-    % AYuI NOTE: only ScreenObjects in the network shell workspace are listed 
+    debugLog              % debugging log
+    showDebugLogs = true; % show debugLogs on the desktop screen
     
+    objListLog            % list of ScreenObjects currently displayed
+    % AYuI NOTE: only ScreenObjects in the network shell workspace are listed
+    showObjListLog = true;
+    
+    % frameRate & execTime screen logs
     frameRateMsg
+    showFrameRateMsg = true;
     execTimeMsg
+    showExecTimeMsg = true;
+  end
+  
+  properties
+    controlStatus % struct with fields dataStore, subject, protocol, protocolVersion, currentTrial, saveTag
   end
   
   methods
@@ -45,6 +52,8 @@ classdef DisplayController < handle
       dc.cxt = context;
       dc.name = 'DisplayController';
       dc.taskWorkspace = struct();
+      
+      dc.controlStatus = struct();
     end
     
     function delete(dc)
@@ -77,7 +86,7 @@ classdef DisplayController < handle
       
       if ~isempty(dc.cxt.networkTargetIP) && ~isempty(dc.cxt.networkTargetPort)
         dc.com = UdpCommunication(dc.cxt);
-        dc.com.open();
+        dc.controlStatus = dc.com.getControlStatus();
       end
       
       dc.preRun();
@@ -110,7 +119,7 @@ classdef DisplayController < handle
       messageStr = sprintf(message, varargin{:});
       str = sprintf('[ %12s ] : %s', timeStr, messageStr);
       if ~isempty(dc.debugLog)
-        dc.debugLog.add(str);
+        dc.debugLog.add(str, 0, dc.sd.white); % message, indent, color (gray by default)
       end
     end
     
@@ -139,9 +148,11 @@ classdef DisplayController < handle
       if newTask
         assert(isa(task, 'DisplayTask'), 'Task must be a DisplayTask instance');
         
-        % clear everything out of ScreenObjectManager
+        % clear everything out of ScreenObjectManager except of debugLogs
         if ~isempty(dc.mgr)
           dc.mgr.flush();
+          dc.logYOffset = dc.sd.yMax - dc.logYGap;
+          dc.addDebugScreenObjects();
         end
         
         % cleanup old task
@@ -169,15 +180,19 @@ classdef DisplayController < handle
       dc.taskWorkspace.(name) = value;
     end
     
+    function updateControlStatus(dc) % trilaLogger control status
+      if ~isempty(dc.com) && dc.com.isOpen
+        dc.controlStatus = dc.com.getControlStatus();
+      end
+    end
+    
   end
   
   methods(Sealed) %  the method cannot be redefined in a subclass
     function postRun(dc)
-      %dc.sd.close();
       dc.sd.delete();
       Screen('CloseAll');
       if ~isempty(dc.com)
-        %dc.com.close();
         dc.com.delete();
       end
       dc.cleanup();
@@ -192,7 +207,6 @@ classdef DisplayController < handle
       % debug log
       dc.logYGap = 6;
       dc.logWidth = 200;
-      %dc.logHeight = 80;
       dc.logHeight = floor((dc.sd.yMax - dc.sd.yMin - 2*dc.logYGap)/3);
       dc.logYOffset = dc.sd.yMax - dc.logYGap;
       dc.logXOffset = dc.sd.xMax - dc.logYGap - dc.logWidth;
@@ -208,16 +222,21 @@ classdef DisplayController < handle
     end
     
     function addDebugScreenObjects(dc)
-      %{
       % display frame rate on screen
       dc.frameRateMsg = ScreenMessage(dc.sd.xMin, dc.sd.yMin);
-      dc.frameRateMsg.show();
       dc.mgr.add(dc.frameRateMsg);
+      if ~dc.showFrameRateMsg
+        dc.frameRateMsg.hide();
+        %dc.mgr.remove(dc.frameRateMsg);
+      end
       
+      % display exec time on screen
       dc.execTimeMsg = ScreenMessage(dc.sd.xMin, dc.sd.yMin+5);
-      dc.execTimeMsg.show();
       dc.mgr.add(dc.execTimeMsg);
-      %}
+      if ~dc.showExecTimeMsg
+        dc.execTimeMsg.hide();
+        %dc.mgr.remove(dc.execTimeMsg);
+      end
       
       % debug log
       dc.debugLog = dc.addLog('Debug Log:');
@@ -228,16 +247,21 @@ classdef DisplayController < handle
         dc.debugLog.hide();
         %dc.mgr.remove(dc.debugLog);
       end
-      
-      % log of all the active objects
-      %dc.objListLog = dc.addLog('ScreenObject List:');
-      %dc.objListLog.titleColor = dc.sd.red;
-      %dc.objListLog.entrySpacing = 1;
-      %dc.objListLog.titleSpacing = 2;
+
+      % log of all the active objects (in the network shell workspace only, NOT task objects)
+      dc.objListLog = dc.addLog('ScreenObject List:');
+      dc.objListLog.titleColor = dc.sd.red;
+      dc.objListLog.entrySpacing = 1;
+      dc.objListLog.titleSpacing = 2;
+      if ~dc.showObjListLog
+        dc.objListLog.hide();
+        %dc.mgr.remove(dc.objListLog);
+      end
     end
     
     function hLog = addLog(dc, title)
       hLog = ScreenLog(dc.logXOffset, dc.logYOffset, dc.logWidth, dc.logHeight, title);
+      hLog.fontSize = 20;
       dc.mgr.add(hLog);
       
       dc.logYOffset = dc.logYOffset - dc.logYGap - dc.logHeight;

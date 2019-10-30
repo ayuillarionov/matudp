@@ -63,6 +63,11 @@ classdef UdpCommunication < handle
       com.open();
       groups = udpMexReceiver('retrieveGroups');
     end
+    
+    function controlStatus = getControlStatus(com)
+      com.open();
+      controlStatus = udpMexReceiver('getCurrentControlStatus');
+    end
   end
   
 end

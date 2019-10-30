@@ -1071,7 +1071,7 @@ mxArray *buildControlStatusStructForCurrentTrial(void) {
 	*mxGetDoubles(saveTag)         = dlStatus->saveTag;
 #else
 	*mxGetPr(protocolVersion) = dlStatus->protocolVersion;
-	*mxGetPr(currentTrial)    = dlStatus->currentTrial;
+	*mxGetPr(currentTrial)    = dlStatus->byTrial[dlStatus->currentTrial].trialId;
 	*mxGetPr(saveTag)         = dlStatus->saveTag;
 #endif
 	mxSetFieldByNumber(mxControlStatus, 0, 3, protocolVersion);

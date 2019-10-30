@@ -45,8 +45,11 @@ classdef RewardPredictiveTargets_Task < DisplayTask
             task.sound = AudioFeedback();
             
             % -- hide logs from subject screen
-            task.dc.debugLog.hide();
-            task.dc.netLog.hide();
+            task.dc.debugLog.show();
+            task.dc.objListLog.hide();
+            task.dc.netLog.show();
+            task.dc.frameRateMsg.hide();
+            task.dc.execTimeMsg.hide();
         end
         
         
@@ -55,8 +58,17 @@ classdef RewardPredictiveTargets_Task < DisplayTask
           if task.dc.showDebugLogs
             task.dc.debugLog.show();
           end
+          if task.dc.showObjListLog
+            task.dc.showObjListLog.show();
+          end
           if task.dc.showNetLogs
             task.dc.netLog.show();
+          end
+          if task.dc.showFrameRateMsg
+            task.dc.frameRateMsg.show();
+          end
+          if task.dc.showExecTimeMsg
+            task.dc.execTimeMsg.show();
           end
         end
         

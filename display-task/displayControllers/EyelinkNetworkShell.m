@@ -51,7 +51,7 @@ classdef EyelinkNetworkShell < DisplayController
   methods
     function ns = EyelinkNetworkShell(varargin)
       ns = ns@DisplayController(varargin{:});
-      ns.name = 'NetworkShell_withEyeLink';
+      ns.name = 'EyelinkNetworkShell';
     end
   end
   
@@ -59,15 +59,7 @@ classdef EyelinkNetworkShell < DisplayController
     function initialize(ns)
       ns.setTask('DisplayTask');
       
-      % log of all the received network packets
-      ns.netLog = ns.addLog('Network Rx Log:');
-      ns.netLog.titleColor = ns.sd.red;
-      ns.netLog.entrySpacing = 1; % vertical gap between entries in data
-      ns.netLog.titleSpacing = 2; % spacing below title before first entry
-      if ~ns.showNetLogs
-        ns.netLog.hide();
-        %dc.mgr.remove(ns.netLog);
-      end
+      ns.addNetScreenLogs(); % log of all the received network packets
       
       % set eyes on the screen as cyan/blue crosses
       ns.eyeLeft = Cursor(); % non-touching Cross(0,0,10,10)
@@ -91,6 +83,18 @@ classdef EyelinkNetworkShell < DisplayController
       
       % initialize Eyelink (if ON and connected)
       ns.initializeEyelink();
+    end
+    
+    function addNetScreenLogs(ns)
+      % log of all the received network packets
+      ns.netLog = ns.addLog('Network Rx Log:');
+      ns.netLog.titleColor = ns.sd.red;
+      ns.netLog.entrySpacing = 1; % vertical gap between entries in data
+      ns.netLog.titleSpacing = 2; % spacing below title before first entry
+      if ~ns.showNetLogs
+        ns.netLog.hide();
+        %dc.mgr.remove(ns.netLog);
+      end
     end
     
     function initializeEyelink(ns)
@@ -238,8 +242,13 @@ classdef EyelinkNetworkShell < DisplayController
               taskVersion = NaN;
             end
             ns.setTask(taskName, taskVersion);
+            ns.addNetScreenLogs();
+            ns.updateControlStatus(); % update controlStatus
             
-            ns.logEyelink('TaskName: %s, Version: %d', taskName, taskVersion);
+            ns.logEyelink('dataStore: %s, subject: %s, protocol: %s, protocolVersion: %d, Trial: %d', ...
+              ns.controlStatus.dataStore, ns.controlStatus.subject, ...
+              ns.controlStatus.protocol, ns.controlStatus.protocolVersion, ...
+              ns.controlStatus.currentTrial);
             
           case 'taskCommand'
             % calls .runCommand on the current DisplayTask

@@ -6,5 +6,5 @@ ns = EyelinkNetworkShell(cxt);
 %ns.catchErrors = false;
 %ns.showEyes = false; % speedgoat data used if false
 
-ns.setTask(RewardPredictiveTargets_Task);
+%ns.setTask(RewardPredictiveTargets_Task);
 ns.run();
