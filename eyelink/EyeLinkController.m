@@ -9,15 +9,33 @@ classdef EyeLinkController < handle
   end
   
   properties
-    edfDir  = pwd;
+    % default edf files storage, pwd if empty
+    eyeTrackerLoggerDirectory = [filesep, 'eyeTrackerLogger', filesep, 'data'];
+    
+    edfDir  = [];
     edfFile = [];
+    
+    lastRecordingStartTime % last recording start time
   end
   
   properties
     doDriftCorrection = false; % DO PRE-TRIAL DRIFT CORRECTION (optional for EyeLink 1000 eye trackers)
     
-    trialIndex = 0;            % trial counter
-    trialSuccess = 0;          % 1 (succesful), 0 (recycled)
+    trialIndex = 0;            % internal trial counter
+    trialSuccess = false;      % true (succesful), false (recycled)
+  end
+  
+  properties(SetAccess = protected, Hidden)
+    state
+  end
+  
+  properties(Dependent)
+    isRecording      % indicates whether the EyeLink is recording
+  end
+  
+  properties(Constant, Hidden)
+    RECORDING_STARTED = 1;
+    RECORDING_STOPED  = 0;
   end
   
   methods
@@ -32,14 +50,28 @@ classdef EyeLinkController < handle
       if exist('fileName', 'var') && ~isempty(fileName) &&  isempty(regexp(fileName, '[/\*:?"<>|]', 'once'))
         elc.edfFile = fileName;
       end
-      if exist('dirName', 'var') && (exist(dirName, 'dir') == 7)
+      
+      if exist('dirName', 'var')
+        dirName = [elc.eyeTrackerLoggerDirectory, filesep, dirName];
+        if (exist(dirName, 'dir') ~= 7)
+          if ~mkdir(dirName)
+            fprintf(' ==> EyelinkController Error: Unable to create directory\n %s', dirName);
+            dirName = elc.eyeTrackerLoggerDirectory;
+          end
+        end
         elc.edfDir = dirName;
+      else
+        elc.edfDir = elc.eyeTrackerLoggerDirectory;
       end
+      
+      elc.state = EyeLinkController.RECORDING_STOPED;
     end
     
     function delete(elc)
       elc.eli.close();
     end
+    
+    %% --- Data Viewer info
     
     function startTrial(elc, trialID, numTrials)
       if nargin < 2
@@ -90,14 +122,32 @@ classdef EyeLinkController < handle
       Eyelink('Message', 'TRIAL_RESULT 0');
     end
     
-    function synctime(elc)
-      
+    % mark zero-plot time in data file
+    function status = synctime(elc)
+      status = Eyelink('Message', 'SYNCTIME');
+    end
+    
+    %% --- Recording
+    
+    function status = get.isRecording(elc)
+      status = (elc.state == EyeLinkController.RECORDING_STARTED);
+      if status % check recording
+        if elc.eli.dummymode || ~elc.eli.isConnected || ~(Eyelink('CheckRecording') == 0)
+          elc.state = EyeLinkController.RECORDING_STOPED;
+          status = 0;
+        end
+      end
     end
     
     % Start recording with data types requested
     function startrecording_error = startRecording(elc, file_samples, file_events, link_samples, link_events)
       if nargin > 5
         error('USAGE: startrecording_error = StartRecording( [file_samples, file_events, link_samples, link_events] )');
+      end
+      
+      if elc.isRecording % already recording
+        startrecording_error = 0;
+        return
       end
       
       if ~exist('file_samples', 'var')
@@ -115,36 +165,51 @@ classdef EyeLinkController < handle
       
       startrecording_error = Eyelink('StartRecording', file_samples, file_events, link_samples, link_events);
       
+      % mark zero-plot time in data file
+      Eyelink('Message', 'SYNCTIME');
+      
       elc.eye_used = Eyelink('EyeAvailable'); % get eye that's tracked
       % returns 0 (LEFT_EYE), 1 (RIGHT_EYE) or 2 (BINOCULAR) depending on what data is
       if elc.eye_used == elc.eli.el.BINOCULAR
         elc.eye_used = elc.eli.el.LEFT_EYE; % use the left_eye data
       end
       
+      elc.state = EyeLinkController.RECORDING_STARTED;
       fprintf(' ==> Eyelink : Start recording\n');
     end
     
+    % Stop recording eye data (stop_recording)
     function stopRecording(elc)
+      if ~elc.isRecording % already stoped
+        return
+      end
       % Add 100 msec of data to catch final events and blank display
       WaitSecs(0.1);
       Eyelink('Stoprecording');
+      elc.state = EyeLinkController.RECORDING_STOPED;
       fprintf(' ==> Eyelink : Stop recording\n');
     end
     
     function status = getNewestFloatSample(elc)
       status = -1;
-      
-      if ~elc.eli.dummymode && (Eyelink('IsConnected') > 0)
-        error = Eyelink('CheckRecording');
-        if error == 0
-          status = Eyelink('NewFloatSampleAvailable');
-        end
-        if ( error == 0 && status > 0 )
+      if elc.isRecording
+        status = Eyelink('NewFloatSampleAvailable');
+        if (status > 0)
           % get the copy of the most recent float sample in the form of an event structure
           elc.evt = Eyelink('NewestFloatSample');
         end
-      else
-        elc.eli.close();
+      end
+    end
+    
+    function status = getFloatSample(elc)
+      status = -1;
+      if elc.isRecording
+        % item type of next queue (SAMPLE_TYPE if sample, 0 if none, else event code)
+        status = Eyelink('GetNextDataType');
+        if ( status == elc.eli.el.SAMPLE_TYPE) % SAMPLE_TYPE = 200
+          % get the copy of the last float sample in the form of an event structure
+          elc.evt = Eyelink('GetFloatData', status);
+        end
       end
     end
     
@@ -161,40 +226,30 @@ classdef EyeLinkController < handle
 	   cr_area2            raw area of 2nd corneal reflection candidate
 	   raw_cr2             raw x, y sensor position of 2nd corneal reflection candidate
     %}
-    function status = getFloatSampleRaw(elc)
-      status = -1;
-      
-      if ~elc.eli.dummymode && (Eyelink('IsConnected') > 0)
-        error = Eyelink('CheckRecording');
-        if error == 0
-          status = Eyelink('GetNextDataType'); % item type of next queue
-        end
-        if ( error == 0 && status == elc.eli.el.SAMPLE_TYPE) % SAMPLE_TYPE = 200
-          % get the copy of the most recent raw float sample in the form of an event structure
-          [elc.evt, elc.raw] = Eyelink('GetFloatDataRaw', status, elc.eye_used);
-        end
-      else
-        elc.eli.close();
-      end
-    end
     
     function status = getNewestFloatSampleRaw(elc)
       status = -1;
-      
-      if ~elc.eli.dummymode && (Eyelink('IsConnected') > 0)
-        error = Eyelink('CheckRecording');
-        if error == 0
-          status = Eyelink('NewFloatSampleAvailable');
-        end
-        if ( error == 0 && status > 0 )
-          % get the copy of the most recent float sample in the form of an event structure
+      if elc.isRecording
+        status = Eyelink('NewFloatSampleAvailable');
+        if (status > 0)
+          % get the copy of the most recent float sample in the form of an event/raw structure
           [elc.evt, elc.raw] = Eyelink('NewestFloatSampleRaw', elc.eye_used);
         end
-      else
-        elc.eli.close();
       end
     end
     
+    function status = getFloatSampleRaw(elc)
+      status = -1;
+      if elc.isRecording
+        % item type of next queue (SAMPLE_TYPE if sample, 0 if none, else event code)
+        status = Eyelink('GetNextDataType');
+        if ( status == elc.eli.el.SAMPLE_TYPE) % SAMPLE_TYPE = 200
+          % get the copy of the most recent raw float sample in the form of an event structure
+          [elc.evt, elc.raw] = Eyelink('GetFloatDataRaw', status, elc.eye_used);
+        end
+      end
+    end
+  
     function [time, gazeX, gazeY, status] = getGazePosition(elc)
       time = NaN('single'); gazeX = NaN(1,2,'double'); gazeY = NaN(1,2,'double');
       
@@ -220,7 +275,7 @@ classdef EyeLinkController < handle
     end
     
     function downloadFile(elc, fileName, dirName)
-      if ~Eyelink('IsConnected')
+      if ~elc.eli.isConnected
         return;
       end
       
@@ -230,14 +285,17 @@ classdef EyeLinkController < handle
       
       % zerod trial counter
       elc.trialIndex = 0;
+      elc.trialSuccess = false;
       
       if exist('fileName', 'var') && ~isempty(fileName) && isempty(regexp(fileName, '[/\*:?"<>|]', 'once'))
         [~, ~, ext] = fileparts(fileName);
         if ~strcmp(ext,'.edf')
           fileName = [fileName, '.edf'];
         end
+      elseif ~isempty(elc.edfFile)
+        fileName = elc.edfFile;
       else
-        fileName = [elc.edfFile, elc.eli.edfFile, '.edf'];
+        fileName = [elc.eli.edfFile, char(datetime('Now', 'Format', 'yMMd.HHmmss.SSS')), '.edf'];
       end
       
       if ~exist('dirName', 'var') || ~(7 == exist(dirName, 'dir'))
@@ -254,7 +312,7 @@ classdef EyeLinkController < handle
         end
         
         if (exist(fullfile(dirName, fileName), 'file') == 2)
-          fprintf('Data file ''%s'' can be found in ''%s''\n', fileName, dirName);
+          fprintf('Data file ''%s'' can be found in\n   ''%s''\n', fileName, dirName);
         end
       catch
         fprintf('Problem receiving data file ''%s''\n', fullfile(dirName, fileName));
@@ -262,6 +320,8 @@ classdef EyeLinkController < handle
     end
     
   end
+  
+  %% --- Callibration files management
   
   properties (Access = private, Hidden)
     cmd = 'http://100.1.1.1/cmd.cgi?'; % command shell

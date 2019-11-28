@@ -1067,7 +1067,7 @@ mxArray *buildControlStatusStructForCurrentTrial(void) {
 
 #if MX_HAS_INTERLEAVED_COMPLEX // from R2017b
 	*mxGetDoubles(protocolVersion) = dlStatus->protocolVersion;
-	*mxGetDoubles(currentTrial)    = dlStatus->currentTrial;
+	*mxGetDoubles(currentTrial)    = dlStatus->byTrial[dlStatus->currentTrial].trialId;
 	*mxGetDoubles(saveTag)         = dlStatus->saveTag;
 #else
 	*mxGetPr(protocolVersion) = dlStatus->protocolVersion;

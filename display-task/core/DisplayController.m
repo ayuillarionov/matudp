@@ -26,18 +26,18 @@ classdef DisplayController < handle
     logYOffset
     logXOffset
     
-    debugLog              % debugging log
-    showDebugLogs = true; % show debugLogs on the desktop screen
+    debugLog             % debugging log
+    showDebugLogs = false; % show debugLogs on the desktop screen
     
     objListLog            % list of ScreenObjects currently displayed
     % AYuI NOTE: only ScreenObjects in the network shell workspace are listed
-    showObjListLog = true;
+    showObjListLog = false;
     
     % frameRate & execTime screen logs
     frameRateMsg
-    showFrameRateMsg = true;
+    showFrameRateMsg = false;
     execTimeMsg
-    showExecTimeMsg = true;
+    showExecTimeMsg = false;
   end
   
   properties
@@ -123,7 +123,7 @@ classdef DisplayController < handle
       end
     end
     
-    function task = setTask(dc, task, taskVersion)
+    function [task, newTask] = setTask(dc, task, taskVersion)
       % setTask(DisplayTask task) or setTask('NameOfDisplayTaskClass')
       if nargin < 3
         taskVersion = NaN;
@@ -180,9 +180,14 @@ classdef DisplayController < handle
       dc.taskWorkspace.(name) = value;
     end
     
-    function updateControlStatus(dc) % trilaLogger control status
+    function newControlStatus = updateControlStatus(dc) % trilaLogger control status
+      newControlStatus = false;
       if ~isempty(dc.com) && dc.com.isOpen
-        dc.controlStatus = dc.com.getControlStatus();
+        cs = dc.com.getControlStatus();
+        newControlStatus = ~isequaln(rmfield(cs, 'currentTrial'), rmfield(dc.controlStatus, 'currentTrial'));
+        if newControlStatus
+          dc.controlStatus = cs;
+        end
       end
     end
     

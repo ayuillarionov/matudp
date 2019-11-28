@@ -13,13 +13,29 @@
 
     trackerMode = 3;    % (1=remote, 3=desktop)
     
-    isOpen = false;     % indicates whether the EyeLink is open
-    isFileOpen = false; % indicates whether the file on Host PC is open
     isFullScreen;       % false if screenRect specified. Otherwise true
     
     oldPrefsList;       % list of old (default) tracker preferences
     
     firstRun = true;    % true until first setup command
+  end
+  
+  properties(SetAccess = protected, Hidden)
+    state
+    fileState
+  end
+  
+  properties(Dependent)
+    isOpen      % indicates whether the EyeLink is open
+    isConnected % indicates whether the EyeLink is connected
+    isFileOpen  % indicates whether the file on Host PC is open
+  end
+  
+  properties(Constant, Hidden)
+    EYELINK_CLOSED = 0;
+    EYELINK_OPEN = 1;
+    FILE_CLOSED = 0;
+    FILE_OPEN = 1;
   end
   
   properties
@@ -32,6 +48,9 @@
       if nargin < 1 || ~isa(si, 'ScreenInfo')
         error('Usage: EyeLinkInfo(ScreenInfo si [, fileName, preambleText])');
       end
+      
+      eli.state = EyeLinkInfo.EYELINK_CLOSED;
+      eli.fileState = EyeLinkInfo.FILE_CLOSED;
       
       eli.si = si; % ScreenInfo instance
       eli.isFullScreen = si.isFullScreen;
@@ -58,7 +77,21 @@
         % (e.g. tracker state bit and Eyelink key values).
         eli.el = EyelinkInitDefaults();
       end
-      
+    end
+    
+    function status = get.isOpen(eli)
+      status = (eli.state >= EyeLinkInfo.EYELINK_OPEN);
+    end
+    
+    function status = get.isFileOpen(eli)
+      status = (eli.fileState == EyeLinkInfo.FILE_OPEN);
+    end
+    
+    function status = get.isConnected(eli)
+      status = (Eyelink('IsConnected') > 0);
+      if ~status % lost connection to EyeTracker
+        eli.close();
+      end
     end
     
     % Initialization of the connection with the Eyelink GazeTracker.
@@ -109,9 +142,9 @@
       eli.setup();
         
       % make sure we're still connected.
-      assert( ~( ~(eli.dummymode==1) && ~(Eyelink('IsConnected')>0) ), 'EyeLink is disconnected');
+      assert( ~( ~(eli.dummymode==1) && ~eli.isConnected ), 'EyeLink is disconnected');
       
-      eli.isOpen = true;
+      eli.state = EyeLinkInfo.EYELINK_OPEN;
     end
 
     function delete(eli)
@@ -133,8 +166,7 @@
       
       Eyelink('Shutdown'); % Shutdown Eyelink
       
-      eli.isFileOpen = false;
-      eli.isOpen = false;
+      eli.state = EyeLinkInfo.EYELINK_CLOSED;
     end
 
     function openFile(eli, varargin)
@@ -152,14 +184,14 @@
       else
         % Add the first note on the file history after open EDF file.
         if ~ismember('preamble_text', p.UsingDefaults)
-          preambleText = sprintf('add_file_preamble_text ''Recorded by %s[%s]''', eli.versionString, p.Results.preamble_text);
-          EyeLinkInfo.sendCommand(preambleText);
+          pText = sprintf('add_file_preamble_text ''Recorded by %s[%s]''', eli.versionString, p.Results.preamble_text);
+          EyeLinkInfo.sendCommand(pText);
         elseif eli.firstRun
-          preambleText = sprintf('add_file_preamble_text ''Recorded by %s''', eli.versionString);
-          EyeLinkInfo.sendCommand(preambleText);
+          pText = sprintf('add_file_preamble_text ''Recorded by %s''', eli.versionString);
+          EyeLinkInfo.sendCommand(pText);
         end
         
-        eli.isFileOpen = true;
+        eli.fileState = EyeLinkInfo.FILE_OPEN;
       end
     end
     
@@ -173,9 +205,11 @@
       if error_code ~= 0
         fprintf('Cannot close EDF file ''%s'', error_code is %i ', eli.edfFile, error_code);
       else
-        eli.isFileOpen = false;
+        eli.fileState = EyeLinkInfo.FILE_CLOSED;
       end
     end
+    
+    %% -- Eyelink configuration
     
     function setPrefs(eli)
       assert(eli.si.isOpen, 'Open screen first!\n');
@@ -199,8 +233,7 @@
       
       % messages/instructions
       %eli.el.eyeimgsize = 50; % percentage of screen
-      
-      % call this function for changes to the calibration structure to take affect
+    5      % call this function for changes to the calibration structure to take affect
       eli.update();
     end
     
@@ -208,6 +241,8 @@
       for i = 1:size(eli.oldPrefsList,1)
         EyeLinkInfo.sendCommand(eli.oldPrefsList(i));
       end
+      % sanity command (due to Variable read not supported)
+      EyeLinkInfo.sendCommand('link_sample_raw_pcr = OFF');
     end
     
     function update(eli)
@@ -227,8 +262,7 @@
         @(x) validateattributes(x, {'numeric'}, {'raw', 'numel', 4}));
       
       % distance from eye to the top/bottom of the viewable portion of the monitor (in mm)
-      % NOTE:  Variable read not supported
-      p.addParameter('screen_distance', [690, 720], ...
+      p.addParameter('screen_distance', [694, 716], ... % NOTE:  Variable read not supported
       @(x) validateattributes(x, {'numeric'}, {'raw', 'numel', 2}));
       
       % SUPPORTED ONLY IN REMOTE MODE!
@@ -241,7 +275,7 @@
       %      <dz> is something like the camera-to-screen distance (depth),
       %      i.e. distance between the lens (at the point where the lens connects to the camera) and
       %      monitor (in mm).
-      p.addParameter('remote_camera_position', [-10, 17, 80, 60, -280], ...
+      p.addParameter('remote_camera_position', [-10, 17, 80, 60, -280], ... % NOTE:  Variable read not supported
       @(x) validateattributes(x, {'numeric'}, {'raw', 'numel', 5}));
       
       % set tracker mode
@@ -265,8 +299,7 @@
       p.addParameter('camera_lens_focal_length', 35, ...
         @(x) isscalar(x) && ismember(x, [16, 25, 35]));
       % set illumination power in camera setup screen (1 = 100%, 2 = 75%, 3 = 50%)
-      % NOTE:  Variable read not supported
-      p.addParameter('elcl_tt_power', 2, ...
+      p.addParameter('elcl_tt_power', 2, ... % NOTE:  Variable read not supported
         @(x) isscalar(x) && ismember(x, [1, 2, 3]));
       
       % --- Calibration and Validation.
@@ -285,8 +318,7 @@
         @(x) validateattributes(x, {'numeric'}, {'scalar', 'nonnegative', '<=', 1500}));
       % One must set this parameter with value NO for custom calibration.
       % One must also reset it to YES for subsequent experiments.
-      % NOTE:  Variable read not supported
-      p.addParameter('generate_default_targets', 'YES', ...
+      p.addParameter('generate_default_targets', 'YES', ... % NOTE: Variable read not supported
         @(x) ischar(x) && any(validatestring(x, {'YES', 'NO'})));
       
       % --- Tracker configuration.
@@ -302,8 +334,7 @@
         @(x) ischar(x) && any(validatestring(x, {'YES', 'NO'})));
       % Can be used to disable monitor marker LEDS, or to control antireflection option.
       % 0 for normal operation, 4 for antireflection on, -1 to turn off markers.
-      % NOTE:  Variable read not supported
-      p.addParameter('head_subsample_rate', 0, ...
+      p.addParameter('head_subsample_rate', 0, ... % NOTE:  Variable read not supported
         @(x) isscalar(x) && ismember(x, [-1, 0, 4]));
       % The level of filtering on the link/analog output (first argument), and on file data (second argument).
       % An additional delay of 1 sample is added to link/analog data for each filter level.
@@ -397,13 +428,11 @@
       % --- Maximum interval (in msec) to send something to host. Any packet (data, image, etc) will do,
       % but empty status packets will be sent if required. This is crutial for syncing the tracker
       % time estimate. 0 is off, else msec interval to send.
-      % NOTE:  Variable read not supported
-      p.addParameter('link_update_interval', 0, ...
+      p.addParameter('link_update_interval', 0, ... % NOTE:  Variable read not supported
         @(x) validateattributes(x, {'numeric'}, {'scalar', 'nonnegative'}));
  
       % specify the address of the listener PC
-      % NOTE:  Variable read not supported
-      p.addParameter('alt_dest_address', '100.1.1.3', ...
+      p.addParameter('alt_dest_address', '100.1.1.3', ... % NOTE:  Variable read not supported
         @(x) ischar(x));
         
       p.parse(varargin{:});
@@ -447,12 +476,13 @@
       end
       
       if eli.firstRun
+        eli.storeOldPref('link_sample_raw_pcr'); % NOTE:  Variable read not supported
+        EyeLinkInfo.sendCommand('link_sample_raw_pcr = ON');
         eli.storeOldPref('inputword_is_window');
         EyeLinkInfo.sendCommand('inputword_is_window = ON');
       end
       
       eli.firstRun = false;
-
     end
     
     % store default tracker preferences
@@ -484,7 +514,7 @@
     
     % query tracker for mount type using elcl_select_configuration variable
     function [status, reply] = queryMountType(eli)
-      if (Eyelink('IsConnected') > 0)
+      if eli.isConnected
         [status, reply] = Eyelink('ReadFromTracker', 'elcl_select_configuration');
       else
         status = -1;
@@ -492,7 +522,8 @@
       end
     end
     
-    % Eyetracker camera setup mode, calibration and validation
+    %% --- Eyetracker camera setup mode, calibration and validation
+    
     function [result, messageString] = doTrackerSetup(eli, sendkey)
       % USAGE: [result, messageString] = doTrackerSetup(EyeLinkInfo() [, sendkey])
       %
@@ -607,6 +638,7 @@
     
   end
   
+  %% -- Coordinates transformation
   methods
     % convert user defined x coordinate into pixel location in x
     function px = toPx(eli, ux)
@@ -629,6 +661,7 @@
     end
   end
   
+  %% --- Utils
   methods(Static)
     function status = sendCommand(com, arg)
       if nargin < 1 || nargin > 2
@@ -679,7 +712,7 @@
       assert(ischar(com) || isstring(com), ...
         'Usage: [status, reply] = EyeLinkInfo.readFromTracker(char/string)');
       
-      if (Eyelink('IsConnected')>0)
+      if (Eyelink('IsConnected') > 0)
         [status, reply] = Eyelink('ReadFromTracker', char(com));
       else
         status = -1;

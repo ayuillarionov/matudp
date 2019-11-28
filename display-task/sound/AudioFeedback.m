@@ -32,7 +32,7 @@ classdef AudioFeedback < handle
         r.paHandle = PsychPortAudio('Open', [], [], 2, r.freq, r.nChannels);
       catch
         % Failed. Retry with default frequency as suggested by device:
-        fprintf('\nCould not open device at wanted playback frequency of %i Hz. Will retry with device default frequency.\n', freq);
+        fprintf('\nCould not open device at wanted playback frequency of %i Hz. Will retry with device default frequency.\n', r.freq);
         fprintf('Sound may sound a bit out of tune, ...\n\n');
         
         psychlasterror('reset');
