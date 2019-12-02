@@ -294,12 +294,27 @@ classdef EyelinkNetworkShell < DisplayController
             com  = group.signals.command;
             args = group.signals.args;
             
-            status = ns.sendCommandtoEyelink(type, com, args);
-            
             switch type
               case 1
-                ns.log('Sending command to Eyelink. status = %i', status);
+                switch com
+                  case 'doEyelinkRecording'
+                    ns.initializeEyelink();
+                    %ns.elc.startRecording();
+                    ns.log('start Eyelink recording');
+                  case 'stopEyelinkRecording'
+                    ns.cleanupEyelink();
+                    %ns.elc.stopRecording();
+                    ns.log('stop Eyelink recording');
+                  case 'calibrateEyelink'
+                    ns.log('calibrate Eyelink');
+                  case 'validateEyelink'
+                    ns.log('validate Eyelink');
+                  otherwise
+                    status = ns.sendCommandtoEyelink(type, com, args);
+                    ns.log('Sending command to Eyelink. status = %i', status);
+                end
               case 2
+                status = ns.sendCommandtoEyelink(type, com, args);
                 ns.log('Sending message to Eyelink. status = %i', status);
               otherwise
             end

@@ -26,11 +26,11 @@ function [R, meta, saveTags] = loadAllEyelinkSaveTagsRaw(folder)
   end
 
   nST = numel(saveTags);
-  prog = ProgressBar(nST, 'Loading %d save tags', nST);
+  %prog = ProgressBar(nST, 'Loading %d save tags', nST);
   [Rc, metac] = deal(cell(nST));
 
   for iST = 1:nST
-    [Rc{iST}, metac{iST}] = loadEyelinkSaveTagRaw(folder, saveTags(iST));
+    [Rc{iST}, metac{iST}] = EyelinkDataLoad.loadEyelinkSaveTagRaw(folder, saveTags(iST));
   end
 
   R    = MatUdp.Utils.structcat(cat(1, Rc{:}));

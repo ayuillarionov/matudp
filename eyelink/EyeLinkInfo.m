@@ -477,7 +477,7 @@
       
       if eli.firstRun
         eli.storeOldPref('link_sample_raw_pcr'); % NOTE:  Variable read not supported
-        EyeLinkInfo.sendCommand('link_sample_raw_pcr = ON');
+        EyeLinkInfo.sendCommand('link_sample_raw_pcr = OFF');
         eli.storeOldPref('inputword_is_window');
         EyeLinkInfo.sendCommand('inputword_is_window = ON');
       end
