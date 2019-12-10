@@ -253,10 +253,11 @@ classdef edf2mat < handle
       obj.createHeader();
       obj.convertEvents();
       if obj.verbose
-        disp('Edf succesfully converted, processed.!');
+        disp('EDF succesfully converted, processed.!');
       end
     end
     
+    %{
     function samplesFilename = get.samplesFilename(obj)
       if obj.oldProcedure
         samplesFilename = strrep(obj.filename, '.edf', ['_' lower(obj.cases.samples) '.asc']);
@@ -272,6 +273,7 @@ classdef edf2mat < handle
         eventsFilename = 'not available for new procedure!';
       end
     end
+    %}
     
     function matFilename = get.matFilename(obj)
       matFilename = strrep(obj.filename, '.edf', '.mat');
@@ -286,45 +288,49 @@ classdef edf2mat < handle
     end
     
     function convertSamples(obj)
+      %{
       if obj.oldProcedure
         obj.convertFile(obj.cases.samples);
       end
+      %}
       obj.processSamples();
     end
     
     function convertEvents(obj)
+      %{
       if obj.oldProcedure
         obj.convertFile(obj.cases.events);
       end
+      %}
       obj.processEvents();
     end
     
     function save(obj)
-      % some how we need to make new copies to store them in a
-      % file ...
+      % some how we need to make new copies to store them in a file ...
       header  = obj.Header;
       samples = obj.Samples;
       events  = obj.Events;
-      edf     = obj.RawEDF;
+      raw     = obj.RawEDF;
       thisobj = obj;
+      
       vname   = @(x) inputname(1);
-      builtin('save', obj.matFilename, vname(header), vname(samples), vname(events), vname(edf), vname(thisobj));
+      builtin('save', obj.matFilename, vname(header), vname(samples), vname(events), vname(raw), vname(thisobj));
     end
     
     function [timeline, offset] = getTimeline(obj)
-      timeline       = (obj.Events.Start.time:obj.Events.End.time).';
-      offset = timeline(1);
+      timeline = (obj.Events.Start.time:obj.Events.End.time).';
+      offset   = timeline(1);
     end
     
     function [timeline, offset] = getNormalizedTimeline(obj)
       [timeline, offset] = obj.getTimeline();
-      timeline       = timeline - offset;
+      timeline           = timeline - offset;
     end
     
     function blinkTimeline = getBlinkTimeline(obj)
       startIndecies = arrayfun(@(x)find(obj.Samples.time == x),  ...
         obj.Events.Eblink.start).';
-      endIndecies = arrayfun(@(x)find(obj.Samples.time == x),  ...
+      endIndecies   = arrayfun(@(x)find(obj.Samples.time == x),  ...
         obj.Events.Eblink.end).';
       
       blinks  = mat2cell([startIndecies, endIndecies], ones(numel(startIndecies), 1));
@@ -337,48 +343,44 @@ classdef edf2mat < handle
       messageTimes        = unique(obj.Events.Messages.time);
       extendedTimeline    = unique([obj.timeline(:); messageTimes(:)]).';
       messageTimeline     = nan(numel(extendedTimeline), 1);
-      messageTimeline(ismember(extendedTimeline, messageTimes))    = 1;
+      messageTimeline(ismember(extendedTimeline, messageTimes)) = 1;
     end
-    
   end
 
   methods(Access = private)
     function convertFile(obj, kind)
-      if obj.oldProcedure
-        if obj.verbose
-          disp('Trying to convert!')
-          disp(['Processing ' kind '. Please wait ...']);
-        end
-        [path, ~, ~] = fileparts(which(mfilename));
-        
-        if ispc
-          command = ['"' path '\private\edf2asc.exe" -miss nan -y '];
-        else
-          command = ['wine', ' ', path, '/private/edf2asc.exe', ' ', '-miss nan -y '];
-        end
-        
-        switch kind
-          case obj.cases.samples
-            command = [command '-s '];
-          case obj.cases.events
-            command = [command '-e -t '];
-          otherwise
-            return;
-        end
-        
-        
-        [~, obj.output] = system([command obj.filename]);
-        
-        if isempty(strfind(obj.output, 'Converted successfully:'))
-          throw(MException('EdfConverter:Edf2Asc',['Something went wrong, check log:\n' obj.output]));
-        end
-        
-        if obj.verbose
-          disp([kind ' successfully converted!']);
-        end
-        
-        obj.movefile(kind);
+      if obj.verbose
+        disp(['Processing ' kind '. Please wait ...']);
       end
+      
+      [path, ~, ~] = fileparts(which(mfilename));
+      
+      if ispc
+        command = ['"' path '\private\edf2asc.exe" -miss nan -y '];
+      else
+        command = ['wine', ' ', path, '/private/edf2asc.exe', ' ', '-miss nan -y '];
+      end
+      
+      switch kind
+        case obj.cases.samples
+          command = [command '-s '];
+        case obj.cases.events
+          command = [command '-e -t '];
+        otherwise
+          return;
+      end
+      
+      [~, obj.output] = system([command obj.filename]);
+      
+      if isempty(strfind(obj.output, 'Converted successfully:'))
+        throw(MException('EdfConverter:Edf2Asc',['Something went wrong, check log:\n' obj.output]));
+      end
+      
+      if obj.verbose
+        disp([kind ' successfully converted!']);
+      end
+      
+      obj.movefile(kind);
     end
     
     function createHeader(obj)

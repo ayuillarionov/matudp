@@ -45,8 +45,10 @@ function trials = parseEDFFile(varargin)
       continue;
     end
     
-    if isStartTrial(line)
+    [check, trialInfo] = isStartTrial(line);
+    if check
       iTrial = iTrial +1;
+      disp(trialInfo)
       continue;
     end
       
@@ -62,10 +64,22 @@ function check = isMSG(line)
   check = strncmp(line, 'MSG', 3);
 end
 
-function check = isStartTrial(line)
+function [check, trialInfo] = isStartTrial(line)
+  trialInfo = struct([]);
+  
   if isMSG(line)
     check = any(contains(line, 'TrialId'));
   else
     check = false;
+  end
+  if check
+    c = strsplit(line);
+    trialInfo.eyelinkTime = str2double(c(2));
+    trialInfo.displayTime = char(c(4));
+    trialInfo.dataStore   = char(c(8));
+    trialInfo.subject     = char(c(10));
+    trialInfo.protocol    = char(c(12));
+    trialInfo.protocolVersion = str2double(c(14));  % TODO strip ,
+    trialInfo.trialId     = str2double(c(16));
   end
 end

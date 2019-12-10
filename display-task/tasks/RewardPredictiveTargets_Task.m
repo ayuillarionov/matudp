@@ -3,6 +3,8 @@ classdef RewardPredictiveTargets_Task < DisplayTask
   properties
     trialFailed = false;
     
+    center       % fixationPoint, instance of Cross class
+    
     target       % instance of CircleTarget class
     
     targetActive % reference to one of the above fields
@@ -26,6 +28,10 @@ classdef RewardPredictiveTargets_Task < DisplayTask
     
     % called when task becomes active
     function initialize(task, ~)
+      task.center = Cross(0, 0, 10, 10); % xc, yc, width, height
+      task.center.hide();
+      task.dc.mgr.add(task.center);
+      
       task.target = CircleTarget(0, 0, 0); % CircleTarget(xc, yc, radius)
       task.target.hide();
       task.dc.mgr.add(task.target);
@@ -117,13 +123,17 @@ classdef RewardPredictiveTargets_Task < DisplayTask
     function buildCommandMap(task)
       map = containers.Map('KeyType', 'char', 'ValueType', 'any'); % Map values to unique keys
       
-      % Mask State
-      map('MaskAcquired') = @task.maskAcquired;
-      
       % TaskControl
       map('TaskPaused') = @task.pause;
       map('StartTask') = @task.start;
       map('InitTrial') = @task.initTrial;
+      
+      % Mask State
+      map('MaskAcquired') = @task.maskAcquired;
+      
+      % FixationPoint
+      map('FixationPointOn')  = @task.fixationPointOn;
+      map('FixationPointOff') = @task.fixationPointOff;
       
       % Target
       map('TargetNeutralOn') = @task.targetNeutralOn;
@@ -135,8 +145,10 @@ classdef RewardPredictiveTargets_Task < DisplayTask
       map('ITI') = @task.iti;
       
       % TrialFailure
-      map('FailureEyeNotSeen')  = @task.failureEyeNotSeen;
-      map('FailureMaskAcquire') = @task.failureMaskAcquire;
+      map('FailureEyeNotSeen')    = @task.failureEyeNotSeen;
+      map('FailureMaskAcquire')   = @task.failureMaskAcquire;
+      map('FailureMaskHeld')      = @task.failureMaskHeld;
+      map('FailureBrokeMaskHold') = @task.failureBrokeMaskHold;
       
       task.commandMap = map;
     end
@@ -144,6 +156,7 @@ classdef RewardPredictiveTargets_Task < DisplayTask
     function pause(task, ~) % 'TaskPaused'
       task.dc.sd.fillBlack();
       
+      task.center.hide();
       task.target.hide();
       task.cursor.hide();
       task.eye.hide();
@@ -172,13 +185,22 @@ classdef RewardPredictiveTargets_Task < DisplayTask
       bColor = double(data.P.backgroundColorRGBA)'/255;
       task.dc.sd.fill(bColor);
       
+      % -- fixation point
+      task.center.xc     = 0;
+      task.center.yc     = 0;
+      task.center.width  = 10;
+      task.center.height = 10;
+      task.center.lineWidth = 3;
+      task.center.color = task.dc.sd.black;
+      task.target.hide();
+      
       % -- target
-      task.target.xc = data.C.targetXMM;
-      task.target.yc = data.C.targetYMM;
-      task.target.radius = data.P.targetDiameterMM/2;
+      task.target.xc          = data.C.targetXMM;
+      task.target.yc          = data.C.targetYMM;
+      task.target.radius      = data.P.targetDiameterMM/2;
       task.target.borderWidth = 1;
       task.target.borderColor = [0 0 1]; % initially blue
-      task.target.fillColor = [0 0 1];   % initially blue
+      task.target.fillColor   = [0 0 1]; % initially blue
       task.target.normal();
       task.target.hide();
       
@@ -189,11 +211,27 @@ classdef RewardPredictiveTargets_Task < DisplayTask
     end
     
     function maskAcquired(task, data) %#ok<INUSD> % 'MaskAcquired'
+      task.photobox.toggle();
+      
+      task.dc.log('Mask Acquired');
+    end
+    
+    function fixationPointOn(task, data) %#ok<INUSD> % 'FixationPointOn'
+      task.center.show();
+      
+      task.photobox.toggle();
+      
+      task.dc.log('Fixation Point On');
+    end
+    
+    function fixationPointOff(task, data) %#ok<INUSD> % 'FixationPointOff'
+      task.center.hide();
+      
       task.sound.playMaskAcquired();
       
       task.photobox.toggle();
       
-      task.dc.log('Mask Acquired');
+      task.dc.log('Fixation Point Off');
     end
     
     function targetNeutralOn(task, data) % 'TargetNeutralOn'
@@ -243,6 +281,7 @@ classdef RewardPredictiveTargets_Task < DisplayTask
     end
     
     function iti(task, ~)
+      task.center.hide();
       task.target.hide();
       
       task.photobox.off();
@@ -258,13 +297,20 @@ classdef RewardPredictiveTargets_Task < DisplayTask
       task.dc.log('Eye Not Seen');
     end
     
-    
     function failureMaskAcquire(task, data) %#ok<INUSD>
-      task.sound.playFailure();
+      %task.sound.playFailure();
       
       task.photobox.toggle();
       
       task.dc.log('Mask Unacquired');
+    end
+    
+    function failureBrokeMaskHold(task, data) %#ok<INUSD>
+      task.sound.playFailure();
+      
+      task.photobox.toggle();
+      
+      task.dc.log('Broke Mask Hold');
     end
   end
   
