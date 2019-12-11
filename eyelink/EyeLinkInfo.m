@@ -184,7 +184,7 @@
       else
         % Add the first note on the file history after open EDF file.
         if ~ismember('preamble_text', p.UsingDefaults)
-          pText = sprintf('add_file_preamble_text ''Recorded by %s[%s]''', eli.versionString, p.Results.preamble_text);
+          pText = sprintf('add_file_preamble_text ''%s''', p.Results.preamble_text);
           EyeLinkInfo.sendCommand(pText);
         elseif eli.firstRun
           pText = sprintf('add_file_preamble_text ''Recorded by %s''', eli.versionString);
