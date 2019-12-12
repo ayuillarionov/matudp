@@ -180,14 +180,15 @@ classdef DisplayController < handle
       dc.taskWorkspace.(name) = value;
     end
     
-    function newControlStatus = updateControlStatus(dc) % trilaLogger control status
+    function [newControlStatus, newTrialId] = updateControlStatus(dc) % trilaLogger control status
       newControlStatus = false;
       if ~isempty(dc.com) && dc.com.isOpen
         cs = dc.com.getControlStatus();
+        
         newControlStatus = ~isequaln(rmfield(cs, 'currentTrial'), rmfield(dc.controlStatus, 'currentTrial'));
-        if newControlStatus
-          dc.controlStatus = cs;
-        end
+        newTrialId       = ~isequaln(cs.currentTrial, dc.controlStatus.currentTrial);
+        
+        dc.controlStatus = cs;
       end
     end
     

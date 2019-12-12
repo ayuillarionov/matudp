@@ -112,11 +112,11 @@ classdef RewardPredictiveTargets_Task < DisplayTask
     % called when a tagged packet <taskCommand>command</taskCommand> comes in
     function runCommand(task, command, data)
       if task.commandMap.isKey(command)
-        fprintf('Running taskCommand %s\n', command);
+        fprintf('DisplayTask: Running taskCommand %s\n', command);
         fn = task.commandMap(command);
         fn(data);
       else
-        fprintf('Unrecognized taskCommand %s\n', command);
+        fprintf('DisplayTask: Unrecognized taskCommand %s\n', command);
       end
     end
     

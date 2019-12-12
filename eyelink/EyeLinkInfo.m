@@ -112,7 +112,7 @@
       
       if (Eyelink('Initialize', enableCallbacks) ~= 0 ) || eli.dummymode
         fprintf(' ==> Eyelink Init aborted (dummy mode not supported).\n');
-        eli.close()
+        eli.close();
         return;
       end
 
@@ -233,7 +233,7 @@
       
       % messages/instructions
       %eli.el.eyeimgsize = 50; % percentage of screen
-    5      % call this function for changes to the calibration structure to take affect
+      % call this function for changes to the calibration structure to take affect
       eli.update();
     end
     

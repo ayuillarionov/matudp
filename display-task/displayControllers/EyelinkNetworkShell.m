@@ -35,10 +35,10 @@ classdef EyelinkNetworkShell < DisplayController
     eyeRight          % EYE_RIGHT data from EyeTracker
     showEyes = true;  % speedgoat data used on Display PC if false
     
-    lastRecordingStartTime % last recording start time
+    lastEyelinkInitializationTime % last Eyelink initialization time
     
-    % initialize in pendingTask state so that we don't start Eyelink recording before task/controlStatus set
-    pendingTask = true;
+    % initialize in pendingTask state so that we don't start Eyelink before task/controlStatus set
+    pendingTask = false;
   end
   
   properties
@@ -96,51 +96,15 @@ classdef EyelinkNetworkShell < DisplayController
       end
     end
     
-    function initializeEyelink(ns)
-      ns.cleanup();
-      
-      ns.lastRecordingStartTime = datetime('now', 'TimeZone', 'Europe/Zurich', 'Format', 'd-MMM-y HH:mm:ss Z');
-      ns.eli = EyeLinkInfo(ns.si, 'ns', ns.setPreambleText());
-      
-      [fileName, fileDir] = ns.setEyeTrackerLoggerFile();
-      
-      ns.elc = EyeLinkController(ns.eli, fileName, fileDir);
-      ns.elc.trialIndex = 0; % internal trial counter
-      
-      %ns.elc.saveLastCalibrationFiles(ns.controlStatus.subject)
-      %ns.elc.loadLastStoredCalibrationFiles(ns.controlStatus.subject)
-      %ns.elc.deleteStoredCalibrationFiles()
-      
-      if ns.eli.isConnected
-        ns.elc.startRecording();
-      end
-    end
-    
     function cleanup(ns)
       ns.cleanupEyelink();
     end
     
-    function cleanupEyelink(ns)
-      if ~isempty(ns.eli) && isvalid(ns.eli)
-        if ns.eli.isConnected
-          ns.elc.stopRecording();
-          ns.elc.downloadFile();
-        end
-      end
-      if isobject(ns.elc)
-        ns.elc.delete();
-      end
-      if isobject(ns.eli)
-       ns.eli.delete();
-      end
-    end
-    
-    function update(ns)
-      % called once each frame
+    function update(ns) % called once each frame
       ns.readNetwork();
       ns.hideMouseIfNotPolled();
       
-      % check if Eyelink is available. try to open if not
+      % check if Eyelink is available. try to open and initialize it if not
       if isobject(ns.eli) && ~ns.eli.isConnected
         ns.initializeEyelink();
       end
@@ -204,7 +168,7 @@ classdef EyelinkNetworkShell < DisplayController
               ns.log('Eval group received without eval signal');
             end
 
-          case 'setTask'
+          case 'setTask' % called at the beginning of each trial
             if isfield(group.signals, 'setTask')
               taskName = group.signals.setTask;
             elseif isfield(group.signals, 'taskName')
@@ -219,16 +183,24 @@ classdef EyelinkNetworkShell < DisplayController
               taskVersion = NaN;
             end
             [~, newTask] = ns.setTask(taskName, taskVersion);
+            
+            % activate desktop screen network log if requested
             if ns.showNetLogs
               ns.addNetScreenLogs();
             end
-            newControlStatus = ns.updateControlStatus(); % update controlStatus
+            
+             % update controlStatus
+            [newControlStatus, newTrialId] = ns.updateControlStatus();
             
             % save current Eyelink file if a new task and start recording to the new file
             if newTask || newControlStatus
-              fprintf( ' ==> EyelinkNetworkShell: setting new control status\n');
+              fprintf( ' ==> EyelinkNetworkShell: Setting new control status\n');
               disp(rmfield(ns.controlStatus, 'currentTrial'));
               ns.initializeEyelink();
+            end
+            
+            if newTrialId
+              fprintf( ' ==> EyelinkNetworkShell: TrialId: %d\n', ns.controlStatus.currentTrial);
             end
             
             ns.logEyelink('dataStore: %s, subject: %s, protocol: %s, protocolVersion: %d, TrialId: %d', ...
@@ -249,8 +221,14 @@ classdef EyelinkNetworkShell < DisplayController
               
               for i = 1:numel(taskCommands)
                 ns.task.runCommand(taskCommands{i}, ns.taskWorkspace);
-                % log command in EyeTracker data file
-                ns.logEyelink(taskCommands{i});
+                
+                if strcmpi(taskCommands{i}, 'TaskPaused') % stop recording and download file
+                  ns.logEyelink(taskCommands{i});         % log command in EyeTracker data file
+                  ns.stopRecording();
+                else                                      % start recording if not already
+                  ns.startRecording();
+                  ns.logEyelink(taskCommands{i});         % log command in EyeTracker data file
+                end
                 
                 %{
                 if strcmpi(taskCommands{i}, 'InitTrial')
@@ -262,13 +240,6 @@ classdef EyelinkNetworkShell < DisplayController
                   ns.elc.endTrial();
                 end
                 %}
-                
-                if strcmpi(taskCommands{i}, 'StartTask') % start brecording if not already
-                  %ns.elc.startRecording();
-                end
-                if strcmpi(taskCommands{i}, 'TaskPaused')
-                  %ns.cleanupEyelink();
-                end
                 
               end
             else
@@ -328,24 +299,6 @@ classdef EyelinkNetworkShell < DisplayController
       % run all eval commands at once
       if ~isempty(evalCommands)
         ns.evaluate(evalCommands);
-      end
-    end
-    
-    % send Command or Message to Eyelink.
-    % Only chars and ints allowed in arguments!
-    % Allows 500 msec. for command to finish.
-    function status = sendCommandtoEyelink(ns, type, com, args)
-      status = -1;
-
-      if isobject(ns.eli) && ns.eli.isConnected
-        switch type
-          case 1 % command. returns command result
-            status = ns.eli.sendCommand(com, args); % sendCommand(char/string, char/string/cell/numeric array)
-          case 2 % message. returns any send error
-            status = ns.eli.sendMessage(com, args); % sendMessage(char/string, char/string/cell/numeric array)
-          otherwise
-            status = -1;
-        end
       end
     end
     
@@ -430,7 +383,7 @@ classdef EyelinkNetworkShell < DisplayController
         try
           eval(local.cmd);
         catch exc
-          fprintf('Error: %s\n', local.report);
+          fprintf(' ==> EyelinkNetworkShell: Error: %s\n', local.report);
           % log the exception in the debugLog
           local.report = exc.message;
           % remove html tags like <a> from the report as they won't display well
@@ -475,7 +428,7 @@ classdef EyelinkNetworkShell < DisplayController
       for i = 1:length(varNames)
         val = evalin('caller', varNames{i});
         if isa(val, 'ScreenObject')
-          %fprintf('Adding to manager : %s\n', varNames{i});
+          %fprintf(' ==> EyelinkNetworkShell: Adding to manager : %s\n', varNames{i});
           objList = [objList val]; %#ok<AGROW>
         end
       end
@@ -523,7 +476,7 @@ classdef EyelinkNetworkShell < DisplayController
       varNames = setdiff(varNames, excludedNames);
       
       for i = 1:length(varNames)
-        %fprintf('Saving to workspace : %s\n', varNames{i});
+        %fprintf(' ==> EyelinkNetworkShell: Saving to workspace : %s\n', varNames{i});
         
         % grab the value in the calling workspace
         val = evalin('caller', varNames{i});
@@ -542,38 +495,104 @@ classdef EyelinkNetworkShell < DisplayController
         %    continue;
         %end
         
-        %                fprintf('Restoring var %s\n', varNames{i});
+        %                fprintf(' ==> EyelinkNetworkShell: Restoring var %s\n', varNames{i});
         % write this variable into the calling workspace
         assignin('caller', varNames{i}, ws(varNames{i}));
       end
     end
   end
   
+  %% Eyelink related functions
   methods
+    % initialize Eyelink
+    function initializeEyelink(ns)
+      ns.cleanup();
+      
+      ns.lastEyelinkInitializationTime = ...
+        datetime('now', 'TimeZone', 'Europe/Zurich', 'Format', 'd-MMM-y HH:mm:ss Z');
+      ns.eli = EyeLinkInfo(ns.si, 'ns', ns.setPreambleText());
+      
+      [fileName, fileDir] = ns.setEyeTrackerLoggerFile();
+      
+      ns.elc = EyeLinkController(ns.eli, fileName, fileDir);
+      
+      %ns.elc.saveLastCalibrationFiles(ns.controlStatus.subject)
+      %ns.elc.loadLastStoredCalibrationFiles(ns.controlStatus.subject)
+      %ns.elc.deleteStoredCalibrationFiles()
+      
+      %{
+      if ns.eli.isConnected
+        ns.elc.startRecording();
+      end
+      %}
+    end
+    
+    % cleanup Eyelink: stop recording and download file
+    function cleanupEyelink(ns)
+      ns.stopRecording();
+      
+      if isobject(ns.elc)
+        ns.elc.delete();
+      end
+      if isobject(ns.eli)
+       ns.eli.delete();
+      end
+    end
+    
+    function status = startRecording(ns)
+      status = -1;
+      if ~isempty(ns.elc) && isvalid(ns.elc)
+        if ~ns.elc.isRecording
+          if ~ns.elc.eli.isFileOpen
+            [ns.elc.edfFile, edfDir] = ns.setEyeTrackerLoggerFile();
+            if ~strncmp(edfDir, ns.elc.eyeTrackerLoggerDirectory, length(ns.elc.eyeTrackerLoggerDirectory))
+              ns.elc.edfDir = [ns.elc.eyeTrackerLoggerDirectory, filesep, edfDir];
+            end
+            ns.eli.openFile('preamble_text', ns.setPreambleText());
+          end
+          status = ns.elc.startRecording();
+        else % already recording
+          status = 1;
+        end
+      end
+    end
+    
+    function status = stopRecording(ns)
+      status = -1;
+      if ~isempty(ns.elc) && isvalid(ns.elc)
+        if ns.elc.isRecording
+          ns.elc.stopRecording();
+          ns.elc.downloadFile();
+          status = 0;
+        else % already stopped and downloaded
+          status = 1;
+        end
+      end
+    end
+    
     % set preamble text in the Eyelink file header
     function preambleText = setPreambleText(ns)
       if ~isempty(fieldnames(ns.controlStatus))
-        cs = sprintf(' , dataStore: %s, subject: %s, protocol: %s, protocolVersion: %d', ...
+        cs = sprintf(', dataStore: %s, subject: %s, protocol: %s, protocolVersion: %d', ...
           ns.controlStatus.dataStore, ns.controlStatus.subject, ...
           ns.controlStatus.protocol, ns.controlStatus.protocolVersion);
       else
         cs = [];
       end
-      preambleText = ['Desktop time: ', char(ns.lastRecordingStartTime), cs];
+      preambleText = ['Desktop ini time: ', char(ns.lastEyelinkInitializationTime), cs];
     end
     
     % set trialLogger inspired fileName for received Eyelink data files
     function [fileName, fileDir] = setEyeTrackerLoggerFile(ns)
       if ~isempty(fieldnames(ns.controlStatus))
         fileName = [ns.controlStatus.subject, '_', ns.controlStatus.protocol, '_', ...
-          sprintf('id%06d', ns.controlStatus.currentTrial), '_', ...
-          'time', char(datetime(ns.lastRecordingStartTime, 'Format', 'yMMd.HHmmss.SSS')), '.edf'];
+          'time', char(datetime('now', 'Format', 'yMMd.HHmmss.SSS')), '.edf'];
         fileDir = [ns.controlStatus.dataStore, filesep, ns.controlStatus.subject, filesep, ...
           datestr(now, 'yyyy-mm-dd'), filesep, ns.controlStatus.protocol, filesep, ...
           sprintf('saveTag%03d', ns.controlStatus.saveTag), filesep];
       end
     end
-      
+
     % send log message to Eyelink with printf like arguments
     function status = logEyelink(ns, message, varargin)
       messageStr = sprintf(message, varargin{:});
@@ -582,6 +601,24 @@ classdef EyelinkNetworkShell < DisplayController
       str = sprintf('[ %12s ] : %s', datestr(now, 'HH:MM:SS.FFF'), messageStr);
       status = ns.sendCommandtoEyelink(2, str, []);
     end
+
+    % send Command or Message to Eyelink.
+    % Only chars and ints allowed in arguments!
+    % Allows 500 msec. for command to finish.
+    function status = sendCommandtoEyelink(ns, type, com, args)
+      status = -1;
+      if isobject(ns.eli) && ns.eli.isConnected
+        switch type
+          case 1 % command. returns command result
+            status = EyeLinkInfo.sendCommand(com, args); % sendCommand(char/string, char/string/cell/numeric array)
+          case 2 % message. returns any send error
+            status = EyeLinkInfo.sendMessage(com, args); % sendMessage(char/string, char/string/cell/numeric array)
+          otherwise
+            fprintf(' ==> EyelinkNetworkShell: sendCommandtoEyelink unknown type : %s\n', type);
+        end
+      end
+    end
+    
   end
   
 end

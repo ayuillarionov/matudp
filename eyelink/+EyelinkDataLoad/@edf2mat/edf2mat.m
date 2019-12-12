@@ -437,7 +437,6 @@ classdef edf2mat < handle
         if line > size(cs{1}, 1), break; end
         obj.controlStatus.(names{i}) = extractAfter(cs{1}{line}, ': ');
       end
-
     end
     
     function movefile(obj, kind)

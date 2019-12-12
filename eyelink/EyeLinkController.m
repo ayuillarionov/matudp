@@ -150,6 +150,12 @@ classdef EyeLinkController < handle
         return
       end
       
+      elc.lastRecordingStartTime = datetime('now', 'TimeZone', 'Europe/Zurich', 'Format', 'd-MMM-y HH:mm:ss Z');
+      
+      if ~elc.eli.isFileOpen
+        elc.eli.openFile();
+      end
+      
       if ~exist('file_samples', 'var')
         file_samples = 1;
       end
@@ -175,19 +181,19 @@ classdef EyeLinkController < handle
       end
       
       elc.state = EyeLinkController.RECORDING_STARTED;
-      fprintf(' ==> Eyelink : Start recording\n');
+      fprintf(' ==> EyelinkController: Start recording\n');
     end
     
     % Stop recording eye data (stop_recording)
     function stopRecording(elc)
       if ~elc.isRecording % already stoped
-        return
+        return;
       end
       % Add 100 msec of data to catch final events and blank display
       WaitSecs(0.1);
       Eyelink('Stoprecording');
       elc.state = EyeLinkController.RECORDING_STOPED;
-      fprintf(' ==> Eyelink : Stop recording\n');
+      fprintf(' ==> EyelinkController: Stop recording\n');
     end
     
     function status = getNewestFloatSample(elc)
@@ -309,6 +315,9 @@ classdef EyeLinkController < handle
         
         if (status > 0)
           fprintf('ReceiveFile status (file size = ) %d bytes\n', status);
+        else
+          fprintf('Problem receiving data file ''%s''\n Error status = %d\n', ...
+            fullfile(dirName, fileName), status);
         end
         
         if (exist(fullfile(dirName, fileName), 'file') == 2)
