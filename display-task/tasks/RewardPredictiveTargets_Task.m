@@ -211,6 +211,8 @@ classdef RewardPredictiveTargets_Task < DisplayTask
     end
     
     function maskAcquired(task, data) %#ok<INUSD> % 'MaskAcquired'
+      task.center.lineWidth = 5;
+       
       task.photobox.toggle();
       
       task.dc.log('Mask Acquired');

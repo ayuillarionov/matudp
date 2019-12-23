@@ -291,7 +291,6 @@ classdef EyelinkNetworkShell < DisplayController
             end
             
           otherwise
-            % add to the task workspace
             ns.addToTaskWorkspace(group.name, group.signals);
         end
       end
