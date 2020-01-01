@@ -1,5 +1,5 @@
 /*  EYELINK APPLICATION CODE      */
-/*  (c) 1995 by SR Research Ltd.  */
+/*  (c) 1995-2013 by SR Research Ltd.  */
 /*  9 Dec '95 by Dave Stampe      */
 /*  PLATFORM-PORTABLE TYPES       */
 /*  MAY NEED TO BE MODIFIED       */

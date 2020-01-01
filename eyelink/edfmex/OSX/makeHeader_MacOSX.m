@@ -1,4 +1,4 @@
- function makeHeader_Win64
+ function makeHeader_MacOSX
 
 %Generates the header files edf2mex.h which contains necessary mex structures and functions
 %to read data from C structures defined in edf_data.h and load them into similarly organized
@@ -16,7 +16,7 @@
 %search for in the edf_data.h header. 
 
 
-edfapi_version = '3.1 MacOS X Jul 13 2010';
+edfapi_version = '4.0 MacOS X Jul  7 2014';
 %FSAMPLE type
 RecTypes.FSAMPLE.codes = {'SAMPLE_TYPE'} ;                  %Constants which code for an event type that uses this structure
 RecTypes.FSAMPLE.allf_code= 'fs';                       %field of ALLF_DATA union corresponding to this structure
