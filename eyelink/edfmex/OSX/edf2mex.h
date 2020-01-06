@@ -1,6 +1,6 @@
 
 
-char *  build_version = "3.1 MacOS X Jul 13 2010";
+char *  build_version = "4.0 MacOS X Jul  7 2014";
 
 
 class BuildMexArrays : public BuildMexArraysBaseClass
