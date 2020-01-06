@@ -1,50 +1,50 @@
 classdef edf2mat < handle
-  % EDF2MAT is a converter to convert Eyetracker data files to MATLAB file and perform some tasks on the data
-  %
-  % Syntax: edf2mat(filename, [verbose]);
-  %
-  % Inputs:
-  %   filename:           must be of type *.edf
-  %   verbose:            logical, can be true or false, default is true.
-  %                       If you want to suppress output to console,
-  %                       verbose has to be false
-  %
-  % Outputs:
-  %	  The edf2mat Object
-  %
-  % Event structure from SR-Research:
-  %     float  px[2], py[2];    /* pupil xy */
-  % 	  float  hx[2], hy[2];    /* headref xy */
-  % 	  float  pa[2]; 		      /* pupil size or area */
-  %
-  % 	  float gx[2], gy[2];     /* screen gaze xy */
-  %     float rx, ry;           /* screen pixels per degree */
-  %     UINT32 time;            /* effective time of event */
-  %     INT16 type;             /* event type */
-  %     UINT16 read;            /* flags which items were included */
-  %     INT16 eye;              /* eye: 0=left, 1=right */
-  %     UINT32 sttime;          /* start time of the event */
-  %     UINT32 entime;          /* end time of the event */
-  %     float hstx, hsty;       /* headref starting points */
-  %     float gstx, gsty;       /* gaze starting points */
-  %     float sta;              // Undocumented by SR-research, assumption: start area of pupil
-  %     float henx, heny;       /* headref ending points */
-  %     float genx, geny;       /* gaze ending points */
-  %     float ena;              // Undocumented by SR-research, assumption: end area of pupil
-  %     float havx, havy;       /* headref averages */
-  %     float gavx, gavy;       /* gaze averages */
-  %     float ava;              // Undocumented by sr-research, assumption: average area of pupil
-  %     float avel;             /* accumulated average velocity */
-  %     float pvel;             /* accumulated peak velocity */
-  %     float svel, evel;       /* start, end velocity */
-  %     float supd_x, eupd_x;   /* start, end units-per-degree */
-  %     float supd_y, eupd_y;   /* start, end units-per-degree */
-  %     UINT16 status;          /* error, warning flags */
-  %     UINT16 flags;           /* error, warning flags */
-  %     UINT16 input;
-  %     UINT16 buttons;
-  %     UINT16 parsedby;        /* 7 bits of flags: PARSEDBY codes */
-  %     LSTRING *message;       /* any message string */
+% EDF2MAT is a converter to convert Eyetracker data files to MATLAB file and perform some tasks on the data
+%
+% Syntax: edf2mat(filename, [verbose]);
+%
+% Inputs:
+%   filename:           must be of type *.edf
+%   verbose:            logical, can be true or false, default is true.
+%                       If you want to suppress output to console,
+%                       verbose has to be false
+%
+% Outputs:
+%	  The edf2mat Object
+%
+% Event structure from SR-Research:
+%     float  px[2], py[2];    /* pupil xy */
+% 	  float  hx[2], hy[2];    /* headref xy */
+% 	  float  pa[2]; 		      /* pupil size or area */
+%
+% 	  float gx[2], gy[2];     /* screen gaze xy */
+%     float rx, ry;           /* screen pixels per degree */
+%     UINT32 time;            /* effective time of event */
+%     INT16 type;             /* event type */
+%     UINT16 read;            /* flags which items were included */
+%     INT16 eye;              /* eye: 0=left, 1=right */
+%     UINT32 sttime;          /* start time of the event */
+%     UINT32 entime;          /* end time of the event */
+%     float hstx, hsty;       /* headref starting points */
+%     float gstx, gsty;       /* gaze starting points */
+%     float sta;              // Undocumented by SR-research, assumption: start area of pupil
+%     float henx, heny;       /* headref ending points */
+%     float genx, geny;       /* gaze ending points */
+%     float ena;              // Undocumented by SR-research, assumption: end area of pupil
+%     float havx, havy;       /* headref averages */
+%     float gavx, gavy;       /* gaze averages */
+%     float ava;              // Undocumented by sr-research, assumption: average area of pupil
+%     float avel;             /* accumulated average velocity */
+%     float pvel;             /* accumulated peak velocity */
+%     float svel, evel;       /* start, end velocity */
+%     float supd_x, eupd_x;   /* start, end units-per-degree */
+%     float supd_y, eupd_y;   /* start, end units-per-degree */
+%     UINT16 status;          /* error, warning flags */
+%     UINT16 flags;           /* error, warning flags */
+%     UINT16 input;
+%     UINT16 buttons;
+%     UINT16 parsedby;        /* 7 bits of flags: PARSEDBY codes */
+%     LSTRING *message;       /* any message string */
 
   properties(Constant, Hidden)
     HEADERSTART = 316; % start header position in the converted ASC file

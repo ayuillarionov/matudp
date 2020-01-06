@@ -199,14 +199,16 @@ classdef EyelinkNetworkShell < DisplayController
               ns.initializeEyelink();
             end
             
-            if newTrialId
-              fprintf( ' ==> EyelinkNetworkShell: TrialId: %d\n', ns.controlStatus.currentTrial);
+            if ns.controlStatus.currentTrial > 0
+              if newTrialId
+                fprintf( ' ==> EyelinkNetworkShell: TrialId: %d\n', ns.controlStatus.currentTrial);
+              end
+              
+              ns.logEyelink('dataStore: %s, subject: %s, protocol: %s, protocolVersion: %d, TrialId: %d', ...
+                ns.controlStatus.dataStore, ns.controlStatus.subject, ...
+                ns.controlStatus.protocol, ns.controlStatus.protocolVersion, ...
+                ns.controlStatus.currentTrial);
             end
-            
-            ns.logEyelink('dataStore: %s, subject: %s, protocol: %s, protocolVersion: %d, TrialId: %d', ...
-              ns.controlStatus.dataStore, ns.controlStatus.subject, ...
-              ns.controlStatus.protocol, ns.controlStatus.protocolVersion, ...
-              ns.controlStatus.currentTrial);
             
           case 'taskCommand'
             % calls .runCommand on the current DisplayTask

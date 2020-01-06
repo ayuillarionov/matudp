@@ -1027,15 +1027,15 @@ DataLoggerStatus *controlAdvanceToNewStatus() {
 	logInfo("Status: Advancing to new DataLoggerStatus, waiting for nextTrial command\n");
 	controlInitializeStatus(dlStatusNew, dlStatusPrev);
 
-	 dlStatusCurrent = dlStatusNew;
+	dlStatusCurrent = dlStatusNew;
 
-	 // then push the old status to the retired list
-	 controlPushRetiredStatus(dlStatusPrev);
+	// then push the old status to the retired list
+	controlPushRetiredStatus(dlStatusPrev);
 
-	 // mark the trial we were just using as finished
-	 controlMarkTrialComplete(dlStatusPrev, dlStatusPrev->currentTrial);
+	// mark the trial we were just using as finished
+	controlMarkTrialComplete(dlStatusPrev, dlStatusPrev->currentTrial);
 
-	 return dlStatusNew;
+	return dlStatusNew;
 }
 
 void controlPushRetiredStatus(DataLoggerStatus *dlStatus) {

@@ -19,7 +19,7 @@
 
 #include "writer.h"
 
-#define WRITE_INTERVAL_USEC 100*1000
+#define WRITE_INTERVAL_USEC 10*1000
 #define PATH_SEPARATOR "/"
 
 typedef struct timespec timespec;
