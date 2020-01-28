@@ -124,6 +124,7 @@
       
       eli.trackerMode = Eyelink('TrackerMode'); % (1=remote, 3=desktop)
       
+      %{
       % open file to record data to
       if ( ~exist('preambleText', 'var') || isempty(preambleText) )
         if ~isempty(eli.preambleText)
@@ -134,6 +135,7 @@
       else
         eli.openFile('preamble_text', preambleText);
       end
+      %}
       
       % set preferences
       eli.setPrefs();

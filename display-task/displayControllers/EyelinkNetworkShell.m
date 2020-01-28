@@ -158,6 +158,10 @@ classdef EyelinkNetworkShell < DisplayController
       for iG = 1:length(groups)
         group = groups(iG);
         
+        %if isfield(group.signals, 'taskCommand')
+        %  disp(group.signals.taskCommand)
+        %end
+        
         switch group.name
           case 'eval'
             if isfield(group.signals, 'eval')
@@ -194,7 +198,7 @@ classdef EyelinkNetworkShell < DisplayController
             
             % save current Eyelink file if a new task and start recording to the new file
             if newTask || newControlStatus
-              fprintf( ' ==> EyelinkNetworkShell: Setting new control status\n');
+              fprintf( '\n ==> EyelinkNetworkShell: Setting new control status\n');
               disp(rmfield(ns.controlStatus, 'currentTrial'));
               ns.initializeEyelink();
             end
@@ -229,20 +233,25 @@ classdef EyelinkNetworkShell < DisplayController
                   ns.stopRecording();
                 else                                      % start recording if not already
                   ns.startRecording();
-                  ns.logEyelink(taskCommands{i});         % log command in EyeTracker data file
+                  
+                  switch taskCommands{i}
+                    case 'InitTrial'
+                      ns.elc.trialSuccess = false;
+                      ns.elc.startTrial(ns.controlStatus.currentTrial); % Eyetracker Logging & bottom title
+                      ns.logEyelink(taskCommands{i});         % log command in EyeTracker data file
+                    case {'RewardTonePlay', 'TrialSuccess'}
+                      ns.elc.trialSuccess = true;
+                      ns.logEyelink(taskCommands{i});         % log command in EyeTracker data file
+                      ns.elc.endTrial(ns.controlStatus.currentTrial);
+                    otherwise
+                      ns.logEyelink(taskCommands{i});         % log command in EyeTracker data file
+                      
+                      if strncmpi(taskCommands{i}, 'Failure', 7)
+                        ns.elc.trialSuccess = false;
+                        ns.elc.endTrial(ns.controlStatus.currentTrial);
+                      end
+                  end
                 end
-                
-                %{
-                if strcmpi(taskCommands{i}, 'InitTrial')
-                  ns.elc.trialSuccess = false;
-                  ns.elc.startTrial(ns.controlStatus.currentTrial);
-                end
-                if strcmpi(taskCommands{i}, 'RewardTonePlay') || strcmpi(taskCommands{i}, 'TrialSuccess')
-                  ns.elc.trialSuccess = true;
-                  ns.elc.endTrial();
-                end
-                %}
-                
               end
             else
               ns.log('taskCommand group received without taskCommand signal');
@@ -271,12 +280,12 @@ classdef EyelinkNetworkShell < DisplayController
               case 1
                 switch com
                   case 'doEyelinkRecording'
-                    ns.initializeEyelink();
-                    %ns.elc.startRecording();
+                    %ns.initializeEyelink();
+                    ns.startRecording();
                     ns.log('start Eyelink recording');
                   case 'stopEyelinkRecording'
-                    ns.cleanupEyelink();
-                    %ns.elc.stopRecording();
+                    %ns.cleanupEyelink();
+                    ns.stopRecording();
                     ns.log('stop Eyelink recording');
                   case 'calibrateEyelink'
                     ns.log('calibrate Eyelink');

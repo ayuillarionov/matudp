@@ -36,6 +36,7 @@ classdef ScreenInfo < handle
   properties(Dependent)
     window
     screenRect % screen pixel coordinates of window, adjusts dynamically when not in full screen
+    frameRate  % in Hz
   end
   
   properties(SetAccess = protected)
@@ -201,6 +202,17 @@ classdef ScreenInfo < handle
         % if not in full screen mode, the window may be resized, so query the rect directly
         rect = Screen('GlobalRect', si.windowPtr);
       end
+    end
+    
+    function frameRate = get.frameRate(si)
+      assert(~isempty(si.windowPtr), 'Call .open() first!');
+      
+      % nominal video frame rate in Hz, as reported by computer's video driver
+      %frameRate = Screen('NominalFrameRate', si.windowPtr);
+      
+      % estimate of the monitor flip interval in seconds with sub-millisecond accuracy
+      [flipInterval, ~, ~] = Screen('GetFlipInterval', si.windowPtr);
+      frameRate = 1/flipInterval; % in Hz
     end
     
     function set.cs(si, cs)

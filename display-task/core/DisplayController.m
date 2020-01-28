@@ -281,7 +281,6 @@ classdef DisplayController < handle
       execTimeBuf = nan(1,30);
       maxExecTime = 0;
       while ~dc.checkAbort()
-        
         % reload transformation each time if not full screen
         if ~dc.cxt.useFullScreen
           Screen('glLoadIdentity', dc.si.windowPtr); % Reset an OpenGL matrix to its default identity setting

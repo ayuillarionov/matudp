@@ -78,21 +78,29 @@ classdef EyeLinkController < handle
         error('Usage: startTrial(trialID [,numTrials])');
       end
       
+      elc.trialIndex = elc.trialIndex + 1; % increase the internal counter
+      
       % Sending a 'TRIALID' message to mark the start of a trial in Data Viewer.
       % This is different than the start of recording message START that is logged when the trial recording begins.
       % The viewer will not parse any messages, events, or samples, that exist in the data file prior to this message.
-      Eyelink('Message', 'TRIALID %d', trialID);
+      if exist('trialID', 'var') && ~isempty(trialID)
+        Eyelink('Message', 'TRIALID %d', trialID);
+      else
+        Eyelink('Message', 'TRIALID %d', elc.trialIndex);
+      end
       
-      % This supplies the title at the bottom of the eyetracker display
-      if ~exist('numTrials','var') || isempty(numTrials)
+      % This supplies the title at the bottom of the Eyetracker display
+      if ~exist('numTrials', 'var') || isempty(numTrials)
         Eyelink('Command', 'record_status_message "TRIAL %d"', trialID);
       else
         Eyelink('Command', 'record_status_message "TRIAL %d/%d"', trialID, numTrials);
       end
       
+      %{
       Eyelink('Command', 'set_idle_mode');
       % clear tracker display
       Eyelink('Command', 'clear_screen %d', 0);
+      %}
       
       if elc.doDriftCorrection
         % Do a drift correction at the beginning of each trial at the center of creen
@@ -101,15 +109,19 @@ classdef EyeLinkController < handle
       end
     end
     
-    function endTrial(elc)
-      elc.trialIndex = elc.trialIndex + 1;
-      
+    function endTrial(elc, trialID)
       % Send messages to report trial condition information.
       % Each message may be a pair of trial condition variable and its corresponding value following the '!V TRIAL_VAR' token message.
       % See "Protocol for EyeLink Data to Viewer Integration-> Trial Message Commands" section of the EyeLink Data Viewer User Manual.
       WaitSecs(0.001);
-      Eyelink('Message', '!V TRIAL_VAR index %d', elc.trialIndex);
+      if exist('trialID', 'var') && ~isempty(trialID)
+        Eyelink('Message', '!V TRIAL_VAR index %d', trialID);
+      else
+        Eyelink('Message', '!V TRIAL_VAR index %d', elc.trialIndex);
+      end
+      
       %Eyelink('Message', '!V TRIAL_VAR imgfile %s', 'imgfile.jpg');
+      
       if elc.trialSuccess
         Eyelink('Message', '!V TRIAL_VAR trialOutcome %s', 'succesful');
       else
