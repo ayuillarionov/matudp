@@ -51,7 +51,7 @@ ifeq ($(SYSTEM), Darwin)
 	# changed rpath-link to rpath to solve dynamic loading issue with libmat.so
 	LDFLAGS_OS = -Wl,-rpath,$(MATLAB_ROOT)/bin/$(MATLAB_ARCH) -L/usr/local/lib/ -largp
 
-	MATLAB_ROOT=/Applications/MATLAB_R2019a.app
+	MATLAB_ROOT=/Applications/MATLAB_R2019b.app
 	MATLAB_ARCH = maci64
 endif
 
