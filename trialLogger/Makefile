@@ -28,14 +28,15 @@ ifeq ($(SYSTEM), Linux)
 	ECHO_END = ;echo " $(COLOR_BLUE)<==$(COLOR_NONE)"
 
 	CFLAGS_OS = -DLINUX
-	# changed rpath-link to rpath to solve dynamic loading issue with libmat.so
-	LDFLAGS_OS = -lrt -Wl,-rpath,$(MATLAB_ROOT)/bin/$(MATLAB_ARCH)
 
 	# grab the newest version of matlab (well, the last modified directory in /usr/local/MATLAB)
 	MATLAB_BIN = $(shell ls -t /usr/local/MATLAB/*/bin/matlab | head -1)
 	MATLAB_ROOT = $(abspath $(dir $(MATLAB_BIN))../)
 
 	MATLAB_ARCH = glnxa64
+
+	# changed rpath-link to rpath to solve dynamic loading issue with libmat.so
+	LDFLAGS_OS = -lrt -Wl,-rpath,$(MATLAB_ROOT)/bin/$(MATLAB_ARCH)
 endif
 # --- MAC OS
 ifeq ($(SYSTEM), Darwin)
@@ -80,8 +81,8 @@ O_FILES = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(C_FILES))
 GDBO_FILES = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.dbg.o, $(C_FILES))
 
 # final output
-EXE = $(BIN_DIR)/trialLogger
-GDBEXE = $(BIN_DIR)/trialLogger-debug
+EXE = $(BIN_DIR)/trialLogger-$(OS)
+GDBEXE = $(BIN_DIR)/trialLogger-$(OS)-debug
 
 # debugging, use make print-VARNAME to see value
 print-%:

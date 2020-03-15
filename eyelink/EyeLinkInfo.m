@@ -264,7 +264,7 @@
         @(x) validateattributes(x, {'numeric'}, {'raw', 'numel', 4}));
       
       % distance from eye to the top/bottom of the viewable portion of the monitor (in mm)
-      p.addParameter('screen_distance', [694, 716], ... % NOTE:  Variable read not supported
+      p.addParameter('screen_distance', [800, 828], ... % NOTE:  Variable read not supported
       @(x) validateattributes(x, {'numeric'}, {'raw', 'numel', 2}));
       
       % SUPPORTED ONLY IN REMOTE MODE!

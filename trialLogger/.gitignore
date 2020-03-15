@@ -1,5 +1,5 @@
 # Ignore directories and tags file
-bin/
+#bin/
 build/
 tags
 

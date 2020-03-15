@@ -19,6 +19,10 @@ classdef RewardPredictiveTargets_Task < DisplayTask
     commandMap   % containers.Map : command string -> method handle
   end
   
+  properties(SetAccess = protected, Hidden)
+    eyeToScreenDistanceMM
+  end
+  
   methods
     % dc is display controller, which is assigned before initialize is called
     function task = RewardPredictiveTargets_Task()
@@ -106,6 +110,11 @@ classdef RewardPredictiveTargets_Task < DisplayTask
         if ~strcmp(task.eye.seen, 'NOT_SEEN')
           %task.eye.show();
         end
+        %{
+        if isfield(data, 'P') && isfield(data.P, 'eyeToScreenDistanceMM')
+          task.eyeToScreenDistanceMM = data.P.eyeToScreenDistanceMM;
+        end
+        %}
       end
     end
     
@@ -149,6 +158,7 @@ classdef RewardPredictiveTargets_Task < DisplayTask
       map('FailureMaskAcquire')   = @task.failureMaskAcquire;
       map('FailureMaskHeld')      = @task.failureMaskHeld;
       map('FailureBrokeMaskHold') = @task.failureBrokeMaskHold;
+      map('FailureManualNO')      = @task.failureManualNO;
       
       task.commandMap = map;
     end
@@ -314,6 +324,54 @@ classdef RewardPredictiveTargets_Task < DisplayTask
       
       task.dc.log('Broke Mask Hold');
     end
+    
+    function failureManualNO(task, data) %#ok<INUSD>
+      task.sound.playFailure();
+      
+      task.photobox.toggle();
+      
+      task.dc.log('Manualy Pushbutton NO pressed');
+    end
   end
+  %{
+  methods(Static)
+    % get parameter value in mm. convert from visual angle to mm if necessary.
+    function [v, spaceUnit] = getValueMM(data, str)
+      % check the space dimentionality: mm or visual angle.
+      names = fieldnames(data);
+      idx = contains(names, str);
+      if any(idx)
+        if endsWith(names{idx}, 'MM', 'IgnoreCase', true)
+          spaceUnit = 'mm';
+          v = data.(names{idx});
+        elseif endsWith(names{idx}, 'VA', 'IgnoreCase', true)
+          spaceUnit = 'va';
+          v = data.(names{idx});
+          v = va2mm(v);
+        end
+      else
+        %disp(['getValueMM error: Reference to non-existent parameter ''', str, '[..[MM/VA]]''']);
+        spaceUnit = 'unknown';
+        v = NaN;
+      end
+    end
+    
+    function mm = va2mm(va)
+      if isfield(ad, 'eyeToScreenDistanceMM')
+        mm = ad.eyeToScreenDistanceMM * tan(pi/180 * va);
+      else
+        mm = NaN;
+      end
+    end
+    function va = mm2va(mm)
+      ad = getGuiData();
+      if isfield(ad, 'eyeToScreenDistanceMM') && (ad.eyeToScreenDistanceMM > 1e-6)
+        va = 180/pi * atan(mm / ad.eyeToScreenDistanceMM);
+      else
+        va = NaN;
+      end
+    end
+  end
+  %}
   
 end
