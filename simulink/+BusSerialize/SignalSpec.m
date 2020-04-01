@@ -327,7 +327,7 @@ classdef SignalSpec < handle
             % okay to pass logical type into param as well
             value = logical(value);
             sv = BusSerialize.SignalSpec('type', BusSerialize.SignalTypes.Param, ...
-                'value', uint8(value), 'units', '', varargin{:});
+                'value', uint8(value), 'units', 'bool', varargin{:});
         end
 
         % Fixed-size string parameter

@@ -104,7 +104,8 @@ function writeSerializeBusCode(busName, varargin)
         
         dims = e.Dimensions;
         numElements = prod(dims);
-        ndims = signalSpec.ndims;
+        %ndims = numel(dims);
+        ndims = signalSpec.nDims; % use ndims since it might be forced larger than numel(dims)
         
         isVariable = strcmp(e.DimensionsMode, 'Variable');
         isBus = strncmp(e.DataType, 'Bus:', 4);

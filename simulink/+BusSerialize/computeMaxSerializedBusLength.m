@@ -54,7 +54,8 @@ for i = 1:numel(elements)
         headerLen = 1 + 1 + 2 + numel(namePrefixKnown) + numel(e.Name) + 2 + numel(e.DocUnits) + 1 + 1;
         
         % reserve a uint16 size per dimension
-        maxLen = maxLen + headerLen + 2 * signalSpec.nDims; 
+        %maxLen = maxLen + headerLen + 2 * numel(e.Dimentions);
+        maxLen = maxLen + headerLen + 2 * signalSpec.nDims; % use ndims since it might be forced larger than numel(dims)
     
         if signalSpec.isEnum
             % reserve space for the longest string

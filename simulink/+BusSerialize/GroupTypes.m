@@ -1,3 +1,4 @@
+%#codegen
 classdef GroupTypes < Simulink.IntEnumType
     % used to route buses on the data logger receivers
     enumeration

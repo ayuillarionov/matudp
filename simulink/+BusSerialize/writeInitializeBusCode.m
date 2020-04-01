@@ -29,7 +29,8 @@ function writeInitializeBusCode(busName)
 
         % compute string to use for dimensions
         dims = e.Dimensions;
-        ndims = signalSpec.nDims;
+        %ndims = numel(dims);
+        ndims = signalSpec.nDims; % use ndims since it might be forced larger than numel(dims)
         if ndims == 1
             dimsStr = mat2str([dims 1]);
             dimsForEmpty = [dims 1];

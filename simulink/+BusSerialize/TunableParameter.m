@@ -184,7 +184,8 @@ classdef TunableParameter < handle
             remoteOnly = p.Results.remoteOnly;
 
             if ~localOnly
-                tg = xpctarget.xpc;
+                %tg = xpctarget.xpc;
+                tg = SimulinkRealTime.target;
                 if isempty(tg)
                     warning('Could not find xPC target. Skipping setting value of parameter %s', tp.nameSimulinkParameter)
                     return;
