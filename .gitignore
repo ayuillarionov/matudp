@@ -4,6 +4,7 @@ udp-mex-receiver_exp/
 # Ignore directories and tags file
 NCCRig1/
 NCCRig2/
+eyelink/
 sensorsLogger/
 save/
 tmp/
