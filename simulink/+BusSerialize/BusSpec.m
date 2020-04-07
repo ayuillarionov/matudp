@@ -1,13 +1,13 @@
 classdef BusSpec < handle
+    
     properties
         busName = '';
         
-        % array of SignalSpec handles
-        signals 
+        signals % array of SignalSpec handles
         
         signalNames = {}
     end
-   
+    
     properties(Dependent)
         nSignals
     end
@@ -62,4 +62,3 @@ classdef BusSpec < handle
     end
     
 end
-        

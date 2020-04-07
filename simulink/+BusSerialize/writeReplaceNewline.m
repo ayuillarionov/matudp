@@ -3,7 +3,7 @@ function writeReplaceNewline(fid, varargin)
     if isempty(replaceNewLine)
         replaceNewLine = char(java.lang.System.getProperty('line.separator'));
     end
-    
+
     fmatStr = varargin{1};
     origNewLine = '\n';
     fmatStr = strrep(fmatStr, origNewLine, replaceNewLine);

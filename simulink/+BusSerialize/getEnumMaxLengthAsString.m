@@ -4,8 +4,5 @@ function maxLen = getEnumMaxLengthAsString(enumName)
     vals = BusSerialize.getEnumAsValueStruct(enumName);
     lens = cellfun(@numel, fieldnames(vals));
     maxLen = max(lens);
-    
+
 end
-    
-    
-    

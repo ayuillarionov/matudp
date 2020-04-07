@@ -3,7 +3,7 @@ function v = getEnumAsValueStruct(enumName)
 % value is the numeric value assigned to that member 
 
     if ~exist(enumName, 'class')
-    error('Enum %s does not exist', enumName);
+        error('Enum %s does not exist', enumName);
     end
 
     % class already exists, check for equivalency
@@ -17,6 +17,3 @@ function v = getEnumAsValueStruct(enumName)
     end
 
 end
-    
-    
-    
