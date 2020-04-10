@@ -9,6 +9,8 @@ sensorsLogger/
 save/
 tmp/
 
+tags
+
 # Prerequisites
 *.d
 
