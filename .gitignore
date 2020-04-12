@@ -1,15 +1,13 @@
 trialLogger_exp/
 udp-mex-receiver_exp/
 
-# Ignore directories and tags file
+# Ignore directories
 NCCRig1/
 NCCRig2/
 eyelink/
 sensorsLogger/
 save/
 tmp/
-
-tags
 
 # Prerequisites
 *.d
