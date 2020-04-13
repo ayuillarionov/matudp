@@ -20,7 +20,7 @@ classdef RewardPredictiveTargets_Task < DisplayTask
   end
   
   properties(SetAccess = protected, Hidden)
-    eyeToScreenDistanceMM
+    eyeToScreenDistanceMM % eye to screen distance parallel to the floor (in mm)
   end
   
   methods
@@ -110,11 +110,6 @@ classdef RewardPredictiveTargets_Task < DisplayTask
         if ~strcmp(task.eye.seen, 'NOT_SEEN')
           %task.eye.show();
         end
-        %{
-        if isfield(data, 'P') && isfield(data.P, 'eyeToScreenDistanceMM')
-          task.eyeToScreenDistanceMM = data.P.eyeToScreenDistanceMM;
-        end
-        %}
       end
     end
     
@@ -189,6 +184,10 @@ classdef RewardPredictiveTargets_Task < DisplayTask
     function initTrial(task, data) % 'InitTrial'
       task.trialFailed = false;
       
+      if isfield(data, 'rigConfig') && isfield(data.rigConfig, 'eyelinkConfig_eyeToScreenDistanceMM')
+        task.eyeToScreenDistanceMM = data.rigConfig.eyelinkConfig_eyeToScreenDistanceMM;
+      end
+      
       %task.eye.show();
       
       % -- screen background
@@ -205,14 +204,28 @@ classdef RewardPredictiveTargets_Task < DisplayTask
       task.target.hide();
       
       % -- target
-      task.target.xc          = data.C.targetXMM;
-      task.target.yc          = data.C.targetYMM;
-      task.target.radius      = data.P.targetDiameterMM/2;
+      if strcmpi(data.meta.targetX.units, 'va')
+        task.target.xc        = task.va2mm(data.C.targetX);
+      else
+        task.target.xc        = data.C.targetX;
+      end
+      if strcmpi(data.meta.targetY.units, 'va')
+        task.target.yc        = task.va2mm(data.C.targetY);
+      else
+        task.target.yc        = data.C.targetY;
+      end
+      if strcmpi(data.meta.targetRadius.units, 'va')
+        task.target.radius    = task.va2mm(data.P.targetRadius);
+      else
+        task.target.radius    = data.P.targetRadius;
+      end
       task.target.borderWidth = 1;
       task.target.borderColor = [0 0 1]; % initially blue
       task.target.fillColor   = [0 0 1]; % initially blue
       task.target.normal();
       task.target.hide();
+      
+      disp(task.target)
       
       % -- photobox
       task.photobox.off();
@@ -333,6 +346,7 @@ classdef RewardPredictiveTargets_Task < DisplayTask
       task.dc.log('Manualy Pushbutton NO pressed');
     end
   end
+
   %{
   methods(Static)
     % get parameter value in mm. convert from visual angle to mm if necessary.
@@ -355,23 +369,23 @@ classdef RewardPredictiveTargets_Task < DisplayTask
         v = NaN;
       end
     end
+    %}
     
-    function mm = va2mm(va)
-      if isfield(ad, 'eyeToScreenDistanceMM')
-        mm = ad.eyeToScreenDistanceMM * tan(pi/180 * va);
+  methods(Access = private)
+    function mm = va2mm(task, va)
+      if task.eyeToScreenDistanceMM > 0
+        mm = task.eyeToScreenDistanceMM * tan(pi/180 * va);
       else
         mm = NaN;
       end
     end
-    function va = mm2va(mm)
-      ad = getGuiData();
-      if isfield(ad, 'eyeToScreenDistanceMM') && (ad.eyeToScreenDistanceMM > 1e-6)
+    function va = mm2va(task, mm)
+      if task.eyeToScreenDistanceMM > 1e-6
         va = 180/pi * atan(mm / ad.eyeToScreenDistanceMM);
       else
         va = NaN;
       end
     end
   end
-  %}
   
 end

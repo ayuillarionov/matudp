@@ -64,6 +64,11 @@ classdef UdpCommunication < handle
       groups = udpMexReceiver('retrieveGroups');
     end
     
+    function [groups, meta] = pollCurrentTrial(com)
+      com.open();
+      [groups, meta] = udpMexReceiver('pollCurrentTrial');
+    end
+    
     function controlStatus = getControlStatus(com)
       com.open();
       controlStatus = udpMexReceiver('getCurrentControlStatus');

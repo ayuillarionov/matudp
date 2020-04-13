@@ -298,7 +298,7 @@ void mexFunction(
 				return;
 			}
 
-			// send groups on buffer out
+			// send [groups, meta] on buffer out
 			buildTrialStructForLastCompleteTrial(&(plhs[0]), &(plhs[1]));
 		} else if (strcmpi(fun, "pollCurrentTrial") == 0) {
 			if (!mexIsLocked()) {
@@ -313,7 +313,7 @@ void mexFunction(
 				return;
 			}
 
-			// send groups on buffer out
+			// send [groups, meta] on buffer out
 			buildTrialStructForCurrentTrial(&(plhs[0]), &(plhs[1]));
 		} else if (strcmpi(fun, "getCurrentControlStatus") == 0) {
 			if (!mexIsLocked()) {
