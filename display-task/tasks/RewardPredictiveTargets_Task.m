@@ -381,7 +381,7 @@ classdef RewardPredictiveTargets_Task < DisplayTask
     end
     function va = mm2va(task, mm)
       if task.eyeToScreenDistanceMM > 1e-6
-        va = 180/pi * atan(mm / ad.eyeToScreenDistanceMM);
+        va = 180/pi * atan(mm / task.eyeToScreenDistanceMM);
       else
         va = NaN;
       end
