@@ -7,14 +7,17 @@ classdef OvalFlyingTarget < Oval
     successful = false;
     
     vibrating = false;
-    vibrateSigma = 2;
     
     xOffset = 0;
     yOffset = 0;
     
     flying = false;
-    flyToX
-    flyToY
+  end
+  
+  properties
+    vibrateSigma = 2;
+    flyToX = NaN;
+    flyToY = NaN;
     flyVelocityMMS = 600; % 5 mm/frame on 120 Hz
   end
   
@@ -107,7 +110,7 @@ classdef OvalFlyingTarget < Oval
       if nargin >= 3
         r.flyToX  = toX;
         r.flyToY  = toY;
-      else
+      elseif any(isnan([r.flyToX, r.flyToY]))
         r.flyToX  = randi([-10000, 10000]);
         r.flyToX  = randi([-10000, 10000]);
       end
@@ -116,12 +119,19 @@ classdef OvalFlyingTarget < Oval
       end
     end
     
+    function stopFlying(r)
+      r.flying    = false;
+    end
+    
     function normal(r)
       r.fill       = true;
       r.acquired   = false;
       r.successful = false;
       r.vibrating  = false;
       r.flying     = false;
+      
+      r.xOffset    = 0;
+      r.yOffset    = 0;
     end
   end
   
@@ -149,11 +159,11 @@ classdef OvalFlyingTarget < Oval
         r.xOffset = r.vibrateSigma * randn(1);
         r.yOffset = r.vibrateSigma * randn(1);
       else
-        if r.flying
+        if r.flying && ~any(isnan([r.flyToX, r.flyToY]))
           flyVelocity = r.flyVelocityMMS / sd.si.frameRate; % mm per frame
           
-          deltaX = r.xc + r.xOffset + r.flyToX;
-          deltaY = r.yc + r.yOffset + r.flyToY;
+          deltaX = r.flyToX - r.xc - r.xOffset;
+          deltaY = r.flyToY - r.yc - r.yOffset;
           deltaVec = [deltaX deltaY] / norm([deltaX deltaY]) * flyVelocity;
           
           r.xOffset = r.xOffset + deltaVec(1);
