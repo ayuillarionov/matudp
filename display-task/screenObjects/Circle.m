@@ -17,8 +17,8 @@ classdef Circle < Oval
   end
   
   methods
-    function obj = Circle(xc, yc, radius)
-      obj = obj@Oval(xc, yc, radius*2, radius*2);
+    function r = Circle(xc, yc, radius)
+      r = r@Oval(xc, yc, radius*2, radius*2);
     end
   end
   

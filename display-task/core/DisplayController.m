@@ -82,6 +82,7 @@ classdef DisplayController < handle
       % initialize the screen info with the screen index, coordinate system,
       % and screenRect (if the display context is not full screen)
       dc.si  = ScreenInfo(dc.cxt.screenIdx, dc.cxt.cs, screenRect);
+      disp(dc.si.cs)
       
       dc.sd  = ScreenDraw(dc.si);
       dc.mgr = ScreenObjectManager(dc.sd);

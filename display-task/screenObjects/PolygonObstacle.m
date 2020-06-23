@@ -213,7 +213,7 @@ classdef PolygonObstacle < ScreenObject
             end
             
             if drawTexture
-                destRect = r.texDestRect;
+                destRect = r.texDestRect;`
                 % offset by flyaway offset
                 destRect([1 3]) = destRect([1 3]) + r.xOffset;
                 destRect([2 4]) = destRect([2 4]) + r.yOffset;

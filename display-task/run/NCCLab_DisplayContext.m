@@ -18,10 +18,16 @@ classdef NCCLab_DisplayContext < DisplayContext
       % (destPort on xpcDisplay Target)
       cxt.networkReceivePort = 25001;
       
-      % --- photobox position on the screen (external diameter is 17.8mm, internal is 13mm)
-      cxt.photoboxPositions.xc = -253.1;
-      cxt.photoboxPositions.yc = 137.1;
-      cxt.photoboxPositions.radius = 8.9;
+      % --- photobox position on the screen (external diameter is 49.15 mm)
+      shiftWidth = 2; % shift due to the black area around the screen
+      shiftHight = 2;
+      
+      cxt.photoboxPositions.radius      = 15;
+      cxt.photoboxPositions.borderWidth = 49.15/2 - cxt.photoboxPositions.radius;
+      cxt.photoboxPositions.xc = -261.984 - shiftWidth ...
+        + cxt.photoboxPositions.radius + cxt.photoboxPositions.borderWidth;
+      cxt.photoboxPositions.yc = 146.016 + shiftHight ...
+        - cxt.photoboxPositions.radius - cxt.photoboxPositions.borderWidth;
     end
   end
   

@@ -20,11 +20,11 @@ classdef Oval < ScreenObject
   end
 
   methods
-    function obj = Oval(xc, yc, width, height)
-      obj.xc = xc;
-      obj.yc = yc;
-      obj.width = width;
-      obj.height = height;
+    function r = Oval(xc, yc, width, height)
+      r.xc = xc;
+      r.yc = yc;
+      r.width = width;
+      r.height = height;
     end
     
     % a one-line string used to concisely describe this object
