@@ -82,7 +82,6 @@ classdef DisplayController < handle
       % initialize the screen info with the screen index, coordinate system,
       % and screenRect (if the display context is not full screen)
       dc.si  = ScreenInfo(dc.cxt.screenIdx, dc.cxt.cs, screenRect);
-      disp(dc.si.cs)
       
       dc.sd  = ScreenDraw(dc.si);
       dc.mgr = ScreenObjectManager(dc.sd);
@@ -346,6 +345,7 @@ classdef DisplayController < handle
       if dc.cxt.useFullScreen
         abort = keyCodes(KbName('escape')); % abort on escape
       else
+        
         abort = false;
       end
     end
@@ -372,12 +372,14 @@ classdef DisplayController < handle
     end
     
     function postFlip(dc)
-      if dc.frameCounter <= intmax('uint32') % uint32(2^32-1) = 4294967295
+      if dc.frameCounter <= intmax('uint32') % uint32(2^32-1) = 4294967295 => 414.25 days at 120Hz
         dc.frameCounter = dc.frameCounter + uint32(1);
       else % restart counter
         dc.frameCounter = uint32(0);
       end
-      dc.com.writePacket([uint8('<frameNumber>'), typecast(dc.frameCounter, 'uint8')]);
+      header = [uint8('<frameNumber>'), typecast(now, 'uint8')];
+      data = [header, typecast(dc.frameCounter, 'uint8'), typecast(dc.sd.flipTimeStamps, 'uint8')];
+      dc.com.writePacket( prependLengthChecksumHeader(data, true) );
     end
     
     function cleanup(dc) %#ok<MANU>

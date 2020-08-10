@@ -18,7 +18,11 @@ classdef ScreenDraw < handle
     
     cursorVisible; % is the mouse cursor visible
     
-    flipTime = NaN;
+    % The absolute value depends on the operating system,
+    % e.g., seconds since system bootup on OS-X and Windows, seconds since
+    % January 1973 00:00:00 GMT on Linux.
+    % NOTE: internally executes GetSecs()
+    flipTimeStamps = NaN(1,3); % [VBLTimestamp StimulusOnsetTime FlipTimestamp]
   end
   
   properties(Constant) % Subclasses inherit constant properties, but cannot change them.
@@ -442,10 +446,13 @@ classdef ScreenDraw < handle
       
       when = 0; % flip on the next possible video retrace
       dontclear = 0; % clear the framebuffer to background color after each flip
-      dontsync = 1; % *not* wait for the flip to happen (NOTE: all returned timestamps are invalid!)
+      dontsync = 0; % =1 --- *NOT* wait for the flip to happen (NOTE: all returned timestamps are invalid!)
       [VBL, StOnset, flipTime] = Screen('Flip', sd.window, when, dontclear, dontsync);
       
-      sd.flipTime = flipTime; % timestamp taken at the end of Flip's execution
+      % VBL      - the system time (in seconds) when the actual flip has happened
+      % StOnset  - an estimate of Stimulus-onset time
+      % flipTime - a timestamp taken at the end of Flip's execution
+      sd.flipTimeStamps = [VBL, StOnset, flipTime];
     end
     
     function fill(sd, color)

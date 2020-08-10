@@ -158,8 +158,8 @@ classdef OvalFlyingTarget < Oval
     
     function tf = getIsArrived(r)
       tf = false;
-      tf = tf || abs(r.xc + r.xOffset) > abs(r.flyToX);
-      tf = tf || abs(r.yc + r.yOffset) > abs(r.flyToY);
+      tf = tf || abs(r.xOffset) > abs(r.flyToX - r.xc);
+      tf = tf || abs(r.yOffset) > abs(r.flyToY - r.yc);
     end
   end
     
@@ -181,9 +181,20 @@ classdef OvalFlyingTarget < Oval
           r.xOffset = r.xOffset + deltaVec(1);
           r.yOffset = r.yOffset + deltaVec(2);
           
-          %disp([deltaVec, r.xOffset, r.yOffset, r.xc+r.xOffset, r.yc+r.yOffset])
+          %fileID = fopen('flyTarget.txt', 'a');
+          %fprintf(fileID, '%f %f %f %f\n', r.xc+r.xOffset, r.yc+r.yOffset, ...
+          %  180/pi*atan((r.xc+r.xOffset)/776), 180/pi*atan((r.yc+r.yOffset)/776));
+          %fclose(fileID);
+          %disp([deltaVec, r.xOffset, r.yOffset, r.xc, r.yc, r.xc+r.xOffset, r.yc+r.yOffset, r.flyToX, r.flyToY])
           
-          if r.getIsArrived()
+          if r.getIsArrived() % set the target to the destination point
+            r.xOffset = r.flyToX - r.xc;
+            r.yOffset = r.flyToY - r.yc;
+            
+            %fileID = fopen('flyTarget.txt', 'a');
+            %fprintf(fileID, '\n\n');
+            %fclose(fileID);
+            
             r.stopFlying();
             %r.hide();
           end

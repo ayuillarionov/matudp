@@ -25,7 +25,8 @@ classdef ScreenInfo < handle
     skipSyncTests = false; % dont skip any sync tests
     % The amount of tolerable noisyness, i.e. the standard deviation of
     % measured timing samples from the computed mean. Default to 0.001, i.e., 1 msec.
-    maxStdDevVBL = 1.8; % ??? very noisy timing! 
+    %maxStdDevVBL = 1.8; % ??? very noisy timing!
+    maxStdDevVBL = 0.001;
   end
   
   properties
@@ -116,6 +117,10 @@ classdef ScreenInfo < handle
           si.screenRect, [], [], [], si.multisample, [], specialFlags );
       end
       
+      % AYuI: Switch to realtime-priority to reduce timing jitter and interruptions
+      % caused by other applications and the operating system itself:
+      Priority(MaxPriority(si.windowPtr));
+      
       % AYuI: set default text color opposite to background color
       Screen(si.windowPtr, 'TextColor', textColor);
       
@@ -141,6 +146,8 @@ classdef ScreenInfo < handle
     end
     
     function close(si)
+      % AYuI: Shutdown realtime scheduling:
+      Priority(0);
       % Close all open onscreen and offscreen windows and textures, movies and video sources.
       Screen('CloseAll')
       si.restorePrefs();

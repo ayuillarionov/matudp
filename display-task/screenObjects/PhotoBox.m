@@ -10,6 +10,8 @@ classdef PhotoBox < Circle
     oscillateEachFrame = true;
     
     frameEven = false;
+    
+    frameRepeater = 1; % 1 2 3 repeated sequence
   end
   
   properties(Constant)
@@ -22,7 +24,7 @@ classdef PhotoBox < Circle
   end
   
   methods
-    function r = PhotoBox(cxt, photoboxId)
+    function pb = PhotoBox(cxt, photoboxId)
       if nargin < 1
         error('Usage: photobox(DisplayContext)');
       end
@@ -45,88 +47,121 @@ classdef PhotoBox < Circle
         rad = pos.radius + border_width;
       end
       
-      r = r@Circle(xc,yc,rad);
-      r.photoboxId = photoboxId;
+      pb = pb@Circle(xc,yc,rad);
+      pb.photoboxId = photoboxId;
       
-      r.fill = true;
-      r.borderColor = border_color;
-      r.borderWidth = border_width;
-      r.hide();
+      pb.fill = true;
+      pb.borderColor = border_color;
+      pb.borderWidth = border_width;
+      pb.hide();
       
-      r.status = r.OFF;
-      r.flashStatus = r.FLASH_OFF;
+      pb.status = pb.OFF;
+      pb.flashStatus = pb.FLASH_OFF;
     end
     
-    function str = describe(r)
-      str = sprintf('PhotoBox %d', r.photoboxId);
+    function str = describe(pb)
+      str = sprintf('PhotoBox %d', pb.photoboxId);
     end
     
-    function on(r)
-      r.show();
-      r.status = r.ON;
-      r.flashStatus = r.FLASH_OFF;
+    function resetFrameRepeater(pb)
+      pb.frameRepeater = 1; 
     end
     
-    function off(r)
+    function on(pb)
+      pb.status = pb.ON;
+      pb.flashStatus = pb.FLASH_OFF;
+      pb.resetFrameRepeater;
+      pb.show();
+    end
+    
+    function off(pb)
       % allow for frame by frame modulations too
-      r.show();
-      r.status = r.OFF;
-      r.flashStatus = r.FLASH_OFF;
+      pb.status = pb.OFF;
+      pb.flashStatus = pb.FLASH_OFF;
+      pb.resetFrameRepeater;
+      pb.show();
     end
     
-    function toggle(r)
+    function toggle(pb)
       % allow for frame by frame modulations too
-      r.show();
-      if r.status == r.OFF
-        r.status = r.ON;
+      if pb.status == pb.OFF
+        pb.status = pb.ON;
       else
-        r.status = r.OFF;
+        pb.status = pb.OFF;
       end
-      r.flashStatus = r.FLASH_OFF;
+      pb.flashStatus = pb.FLASH_OFF;
+      pb.resetFrameRepeater;
+      pb.show();
     end
     
-    function flash(r)
-      r.show();
-      r.status = r.ON;
-      r.flashStatus = r.FLASH_PENDING_DRAW;
+    function flash(pb)
+      pb.status = pb.ON;
+      pb.flashStatus = pb.FLASH_PENDING_DRAW;
+      pb.resetFrameRepeater;
+      pb.show();
     end
     
-    function update(r, mgr, sd)
-      if isempty(r.fillColor)
-        r.fillColor = sd.white;
-        %r.borderColor = sd.white;
-      end
-      
-      update@Circle(r, sd);
-      
-      if r.flashStatus == r.FLASH_DRAWN
-        r.status = r.OFF;
-        r.flashStatus = r.FLASH_OFF;
-      end
-      
-      if r.status == r.ON
-        if r.frameEven || ~r.oscillateEachFrame
-          r.fillColor = [1 1 1];
-        else
-          r.fillColor = [0.9 0.9 0.9];
-        end
-      else
-        if r.frameEven && r.oscillateEachFrame
-          r.fillColor = [0.2 0.2 0.2];
-        else
-          r.fillColor = [0 0 0];
+    function update(pb, mgr, sd)
+      if isempty(pb.fillColor)
+        pb.fillColor = sd.white;
+        if isempty(pb.borderColor)
+          pb.borderColor = sd.white;
         end
       end
       
-      r.frameEven = ~r.frameEven;
-      %fprintf('%g %g %g\n', r.fillColor(1), r.fillColor(2), r.fillColor(3));
+      update@Circle(pb, sd);
+      
+      if pb.flashStatus == pb.FLASH_DRAWN
+        pb.status = pb.OFF;
+        pb.flashStatus = pb.FLASH_OFF;
+      end
+      
+      if pb.status == pb.ON
+        if pb.frameRepeater == 1 || ~pb.oscillateEachFrame
+          pb.fillColor = [1 1 1];
+        elseif pb.frameRepeater == 2
+          pb.fillColor = [0.9 0.9 0.9];
+        else
+          pb.fillColor = [0.7 0.7 0.7];
+        end
+      else
+        if pb.frameRepeater == 1 || ~pb.oscillateEachFrame
+          pb.fillColor = [0 0 0];
+        elseif pb.frameRepeater == 2
+          pb.fillColor = [0.25 0.25 0.25];
+        else
+          pb.fillColor = [0.4 0.4 0.4];
+        end
+      end
+      
+      %{
+      if pb.status == pb.ON
+        if pb.frameEven || ~pb.oscillateEachFrame
+          pb.fillColor = [1 1 1];
+        else
+          pb.fillColor = [0.9 0.9 0.9];
+        end
+      else
+        if pb.frameEven && pb.oscillateEachFrame
+          pb.fillColor = [0.2 0.2 0.2];
+        else
+          pb.fillColor = [0 0 0];
+        end
+      end
+      
+      pb.frameEven = ~pb.frameEven;
+      %}
+      
+      pb.frameRepeater = mod(pb.frameRepeater, 3) + 1; % 1 2 3 repeated sequence
+
+      %fprintf('%g %g %g\n', pb.fillColor(1), pb.fillColor(2), pb.fillColor(3));
     end
     
-    function draw(r, sd)
-      if r.flashStatus == r.FLASH_PENDING_DRAW
-        r.flashStatus = r.FLASH_DRAWN;
+    function draw(pb, sd)
+      if pb.flashStatus == pb.FLASH_PENDING_DRAW
+        pb.flashStatus = pb.FLASH_DRAWN;
       end
-      draw@Circle(r, sd);
+      draw@Circle(pb, sd);
     end
   end
   
