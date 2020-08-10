@@ -1,0 +1,3 @@
+[submodule "eyelink"]
+	path = eyelink
+	url = https://github.com/ayuillarionov/eyelink.git
