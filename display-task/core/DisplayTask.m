@@ -19,6 +19,10 @@ classdef DisplayTask < handle
       % called once each frame
     end
     
+    function postFlip(task, data) %#ok<*INUSD>
+      % called once each frame
+    end
+    
     function cleanup(task)
       % called when task is becoming inactive
     end

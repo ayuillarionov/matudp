@@ -26,7 +26,7 @@ classdef DisplayController < handle
     logYOffset
     logXOffset
     
-    debugLog             % debugging log
+    debugLog               % debugging log
     showDebugLogs = false; % show debugLogs on the desktop screen
     
     objListLog            % list of ScreenObjects currently displayed
@@ -34,8 +34,10 @@ classdef DisplayController < handle
     showObjListLog = false;
     
     % frameRate & execTime screen logs
+    frameCounter = uint32(0);
     frameRateMsg
     showFrameRateMsg = false;
+    execTime              % updates for each frame
     execTimeMsg
     showExecTimeMsg = false;
   end
@@ -312,10 +314,17 @@ classdef DisplayController < handle
         
         dc.sd.flip();
         
-        execTime = toc(tStart);
-        maxExecTime = max([execTime maxExecTime]);
+        dc.postFlip(); % this should be called immediately after flip to get right timing
         
-        dc.execTimeMsg.message = sprintf('ET: %5.0f ms / MaxET: %5.0f ms', execTime * 1000, maxExecTime * 1000);
+        dc.execTime = toc(tStart);
+        
+        if ~isempty(dc.task)
+          dc.task.postFlip();
+        end
+        
+        maxExecTime = max([dc.execTime maxExecTime]);
+        
+        dc.execTimeMsg.message = sprintf('ET: %5.0f ms / MaxET: %5.0f ms', dc.execTime * 1000, maxExecTime * 1000);
         execTimeBuf = [execTimeBuf(2:end) toc(tStart)];
         
         % compute execution time between flips
@@ -350,14 +359,24 @@ classdef DisplayController < handle
   end
   
   methods(Access = protected) % Access from methods in class or subclasses
-    function initialize(dc) %#ok<MANU>
+    function initialize(dc)
       %   Perform any initializations needed by the dc
+      dc.frameCounter = uint32(0);
     end
     
     function update(dc)
       %   Run a single frames worth of updating screen objects,
       %   no need to call mgr.drawAll, flip, or wrap in try catch
       dc.log('DisplayController.update()');
+    end
+    
+    function postFlip(dc)
+      if dc.frameCounter <= intmax('uint32') % uint32(2^32-1) = 4294967295
+        dc.frameCounter = dc.frameCounter + uint32(1);
+      else % restart counter
+        dc.frameCounter = uint32(0);
+      end
+      dc.com.writePacket([uint8('<frameNumber>'), typecast(dc.frameCounter, 'uint8')]);
     end
     
     function cleanup(dc) %#ok<MANU>

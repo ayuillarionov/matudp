@@ -77,6 +77,18 @@ classdef OvalFlyingTarget < Oval
       y2 = r.yc + r.yOffset + r.height/2;
     end
     
+    function setOffset(r, offset)
+      if nargin >= 2
+        r.xOffset = offset(1);
+        r.yOffset = offset(2);
+      end
+    end
+    
+    function resetOffset(r)
+      r.xOffset = 0;
+      r.yOffset = 0;
+    end
+    
     function contour(r)
       r.fill = false;
     end
@@ -105,7 +117,7 @@ classdef OvalFlyingTarget < Oval
     end
     
     function fly(r, toX, toY, velocity)
-      r.vibrating = false;
+      r.stopVibrating();
       r.flying    = true;
       if nargin >= 3
         r.flyToX  = toX;
@@ -169,12 +181,19 @@ classdef OvalFlyingTarget < Oval
           r.xOffset = r.xOffset + deltaVec(1);
           r.yOffset = r.yOffset + deltaVec(2);
           
-          if r.getIsOffScreen(sd) || r.getIsArrived()
+          %disp([deltaVec, r.xOffset, r.yOffset, r.xc+r.xOffset, r.yc+r.yOffset])
+          
+          if r.getIsArrived()
+            r.stopFlying();
+            %r.hide();
+          end
+          
+          if r.getIsOffScreen(sd)
             r.hide();
           end
         else
-          r.xOffset = 0;
-          r.yOffset = 0;
+          %r.xOffset = 0;
+          %r.yOffset = 0;
         end
       end
     end
