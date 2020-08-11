@@ -11,11 +11,10 @@ function [protocolList, searchFolder] = listProtocols(varargin)
     protocolList = cell(numel(list), 1);
 
     for i = 1:numel(list)
-        if ~list(i).isdir || strncmp(list(i).name, '.', 1), continue, end;
+        if ~list(i).isdir || strncmp(list(i).name, '.', 1), continue, end
         protocolList{i} = list(i).name;
         mask(i) = ~isempty(MatUdp.DataLoadEnv.listSaveTags(varargin{:}, 'protocol', list(i).name));
     end
 
     protocolList = protocolList(mask);
 end
-

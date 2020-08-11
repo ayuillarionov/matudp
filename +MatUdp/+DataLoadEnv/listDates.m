@@ -12,7 +12,7 @@ function [dateStrList, dateNumList, searchFolder] = listDates(varargin)
     dateNumList = nan(numel(list), 1);
 
     for i = 1:numel(list)
-        if ~list(i).isdir, continue, end;
+        if ~list(i).isdir, continue, end
         try
             dateNumList(i) = datenum(list(i).name, 'YYYY-MM-DD');
             dateStrList{i} = list(i).name;
@@ -24,4 +24,3 @@ function [dateStrList, dateNumList, searchFolder] = listDates(varargin)
     dateNumList = dateNumList(mask);
     dateStrList = dateStrList(mask);
 end
-

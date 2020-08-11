@@ -1,8 +1,8 @@
 function [info, valid] = parseTrialFileName(fname)
     pat = '(?<subject>[^_]+)_(?<protocol>[^_]+)_id(?<trialId>[\d]+)_time(?<timestamp>[\d\.]+)\.mat';
-    
+
     match = regexp(fname, pat, 'names', 'once');
-    
+
     if iscell(fname)
         % names is cell array of struct
         valid = false(numel(fname), 1);
@@ -20,7 +20,7 @@ function [info, valid] = parseTrialFileName(fname)
                 info(i, 1).datenum = NaN;
             end
         end
-        
+
     else
         if ~isempty(match)
             info.subject = match.subject;
@@ -35,6 +35,5 @@ function [info, valid] = parseTrialFileName(fname)
             info.datenum = NaN;
             valid = false;
         end
-    end           
-    
+    end
 end

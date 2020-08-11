@@ -1,17 +1,17 @@
 function [saveTags, searchFolder] = listSaveTags(varargin)
-    folder = MatUdp.DataLoadEnv.buildPathToProtocol(varargin{:});
-    
-    if ~exist(folder, 'dir')
-        warning('Date folder %s not found', folder);
+    protocolRoot = MatUdp.DataLoadEnv.buildPathToProtocol(varargin{:});
+
+    if ~exist(protocolRoot, 'dir')
+        warning('Date folder %s not found', protocolRoot);
     end
-    
+
     % enumerate saveTag folders in that directory
-    list = dir(folder);
-    mask = falsevec(numel(list));
-    saveTags = nanvec(numel(list));
+    list = dir(protocolRoot);
+    mask = false(numel(list), 1);   % falsevec
+    saveTags = nan(numel(list), 1); % nanvec
 
     for i = 1:numel(list)
-        if ~list(i).isdir, continue, end;
+        if ~list(i).isdir, continue, end
         r = regexp(list(i).name, 'saveTag(\d+)', 'tokens');
         if ~isempty(r)
             saveTags(i) = str2double(r{1});
@@ -20,6 +20,5 @@ function [saveTags, searchFolder] = listSaveTags(varargin)
     end
 
     saveTags = saveTags(mask);
-    searchFolder = folder;
+    searchFolder = protocolRoot;
 end
-
