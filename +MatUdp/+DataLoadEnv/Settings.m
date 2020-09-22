@@ -1,23 +1,26 @@
 classdef Settings
     methods(Static)
-        % subject, data, and data store root are mutually exclusive. set
-        % only one.
-        function setSubjectRoot(r)
-            setenv('MATUDP_SUBJECTROOT', r);
-            setenv('MATUDP_DATAROOT');
-            setenv('MATUDP_DATASTOREROOT');
-        end
-        
+        % subject, data, and data store root are mutually exclusive.
+        % set only one.
         function setDataRoot(r)
+            % root path under which lives dataStore/subject/dateStr
             setenv('MATUDP_DATAROOT', r);
-            setenv('MATUDP_SUBJECTROOT');
             setenv('MATUDP_DATASTOREROOT');
+            setenv('MATUDP_SUBJECTROOT');
         end
         
         function setDataStoreRoot(r)
-            setenv('MATUDP_DATASTOREROOT', r);
+            % root path under which lives subject/dateStr
             setenv('MATUDP_DATAROOT');
+            setenv('MATUDP_DATASTOREROOT', r);
             setenv('MATUDP_SUBJECTROOT');
+        end
+        
+        function setSubjectRoot(r)
+            % root path under which lives dateStr
+            setenv('MATUDP_DATAROOT');
+            setenv('MATUDP_DATASTOREROOT');
+            setenv('MATUDP_SUBJECTROOT', r);
         end
         
         function setSubject(r)
@@ -28,10 +31,10 @@ classdef Settings
             setenv('MATUDP_PROTOCOL', r);
         end
         
-        function clear(r)
-            setenv('MATUDP_SUBJECTROOT');
+        function clear(~)
             setenv('MATUDP_DATAROOT');
             setenv('MATUDP_DATASTOREROOT');
+            setenv('MATUDP_SUBJECTROOT');
             setenv('MATUDP_SUBJECT');
             setenv('MATUDP_PROTOCOL');
         end
