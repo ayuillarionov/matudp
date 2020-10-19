@@ -29,7 +29,7 @@ classdef ScreenObject < handle & matlab.mixin.Heterogeneous
     
     % update the object, mgr is a ScreenObjectManager
     % can be used to add or remove objects from the manager as well
-    update(obj, mgr, sd)
+    update(obj, mgr, sd);
     
     % use the ScreenDraw object to draw this object onto the screen
     draw(obj, sd);

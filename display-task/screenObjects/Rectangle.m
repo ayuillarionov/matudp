@@ -5,8 +5,10 @@ classdef Rectangle < ScreenObject
     yc
     width
     height
-    color
+    
     borderWidth = 1;
+    color % frame color if not filled and fill color if fillColor not set
+    
     fillColor
     fill = false;
   end
@@ -27,25 +29,26 @@ classdef Rectangle < ScreenObject
     end
     
     function str = describe(r)
-      plusMinus = char(177);
       if r.fill
         fillStr = 'filled';
       else
         fillStr = 'unfilled';
       end
-      str = sprintf('(%g, %g) size %g x %g, %s', ...
+      str = sprintf('Rectangle: (%g, %g) size %g x %g, %s.', ...
         r.xc, r.yc, r.width, r.height, fillStr);
     end
     
-    function update(r, mgr, sd)
+    % update the object, mgr is a ScreenObjectManager, sd is a ScreenDraw object
+    function update(r, mgr, sd) %#ok<INUSD>
       % nothing here
     end
     
+    % use the ScreenDraw object to draw this object onto the screen
     function draw(r, sd)
       state = sd.saveState();
-      sd.penColor = r.color;
+      sd.penColor  = r.color;
       sd.fillColor = r.fillColor;
-      sd.penWidth = r.borderWidth;
+      sd.penWidth  = r.borderWidth;
       sd.drawRect(r.x1, r.y1, r.x2, r.y2, r.fill);
       sd.restoreState(state);
     end
@@ -74,7 +77,9 @@ classdef Rectangle < ScreenObject
     function y2 = get.y2(r)
       y2 = r.yc + r.height/2;
     end
-    
+  end
+  
+  methods(Access = private)
     function tf = getIsOffScreen(r, sd)
       tf = false;
       tf = tf || max([r.x1 r.x2]) < sd.xMin;
