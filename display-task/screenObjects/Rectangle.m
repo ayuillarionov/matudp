@@ -7,13 +7,13 @@ classdef Rectangle < ScreenObject
     height
     
     borderWidth = 1;
-    color % frame color if not filled and fill color if fillColor not set
+    color     % frame color if not filled and fill color if fillColor not set
     
-    fillColor
+    fillColor % fill color defaults to frame color unless specified otherwise
     fill = false;
   end
   
-  properties(Dependent)
+  properties(Dependent, SetAccess = protected)
     x1
     y1
     x2
@@ -60,6 +60,14 @@ classdef Rectangle < ScreenObject
       else
         color = r.fillColor;
       end
+    end
+
+    function contour(obj)
+      obj.fill = false;
+    end
+    
+    function fillIn(obj)
+      obj.fill = true;
     end
     
     function x1 = get.x1(r)

@@ -1,214 +1,21 @@
-classdef RectangleTargetArray < ScreenObject
-  %RECTANGLETARGETARRAY Array of RectangleTarget ScreenObjects
-  %   RectangleTargetArray is a ScreenObjects itself but implemented
+classdef RectangleTargetArray < ScreenTargetObjectArray
+  %RECTANGLETARGETARRAY Array of RectangleTarget ScreenTargetObjects
+  %   RectangleTargetArray is a ScreenObject itself but implemented
   %   similar to ScreenObjectManager.
-  
-  properties
-    targets; % list of RectangleTargets in targets, automatically filtered to delete invalid objects
-  end
-  
-  properties(Dependent)
-    sortedTargets % list of RectangleTargets in targets, sorted by ascending zOrder
-  end
   
   methods
     function obj = RectangleTargetArray(nTargets)
       if nargin < 1
         obj.targets = [];
       else
-        obj = obj.CreateTargets(nTargets);
+        obj = obj.createTargets(nTargets);
       end
     end
     
-    function obj = CreateTargets(obj, n)
+    function obj = createTargets(obj, n)
       for i = 1:n
         obj.add(RectangleTarget(NaN, NaN, NaN, NaN));
       end
     end
-    
-    function add(obj, target)
-      assert(isa(target, 'RectangleTarget'), ...
-        'Can only add objects of class RectangleTarget');
-      obj.targets = [obj.targets, target];
-    end
-    
-    function remove(obj, target)
-      obj.targets = obj.targets(~isequal(obj.targets, target));
-    end
-    
-    function flush(obj)
-      obj.targets = [];
-    end
-    
-    function targets = get.targets(obj)
-      if isempty(obj.targets)
-        targets = [];
-      else
-        % filter only the valid objects in the target's list
-        targets = obj.targets(isvalid(obj.targets));
-        obj.targets = targets;
-      end
-    end
-    
-    function targets = get.sortedTargets(obj)
-      if isempty(obj.targets)
-        targets = [];
-        return;
-      end
-      
-      zOrderList = [obj.targets.zOrder];
-      [~, sortIdx] = sort(zOrderList);
-
-      targets = obj.targets(sortIdx);
-    end
-    
-    % a one-line string used to concisely describe this object
-    function str = describe(obj)
-      if isempty(obj.targets)
-        str = sprintf('Empty RectangleTargetArray.');
-        return;
-      end
-      
-      nTarget = length(obj.targets);
-      str = sprintf('RectangleTargetArray with %g targets:', nTarget);
-      for i = 1:nTarget
-        str = [str, newline, int2str(i), '. ', obj.targets(i).describe]; %#ok<AGROW>
-      end
-    end
-    
-    % update the object, mgr is a ScreenObjectManager
-    % can be used to add or remove objects from the manager as well
-    function update(obj, mgr, sd)
-      targets = obj.targets; %#ok<*PROPLC>
-      for i = 1:length(targets)
-        targets(i).update(mgr, sd);
-      end
-    end
-    
-    % use the ScreenDraw object to draw this object onto the screen
-    function draw(obj, sd)
-      % sort by z order and then draw if visible
-      targets = obj.targets;
-      if isempty(targets)
-        return;
-      end
-      targets = targets([targets.visible]);
-      for i = 1:length(targets)
-        targets(i).draw(sd);
-      end
-    end
-  end
-  
-  methods
-    function normal(obj, targetIdx)
-      if ~exist('targetIdx','var') || isempty(targetIdx)
-        arrayfun(@(t) t.normal, obj.targets);
-      else
-        arrayfun(@(t) t.normal, obj.targets(targetIdx));
-      end
-    end
-    
-    function setSuccessColor(obj, color, targetIdx)
-      if isvector(color) && numel(color) == 3
-        if ~exist('targetIdx','var') || isempty(targetIdx)
-          for i = 1:length(obj.targets)
-            obj.targets(i).successColor(color);
-          end
-        else
-          for i = 1:length(targetIdx)
-            obj.targets(targetIdx(i)).successColor(color);
-          end
-        end
-      else
-        error('==> Invalid color input.');
-      end
-    end
-    
-    function contour(obj, targetIdx)
-      if ~exist('targetIdx','var') || isempty(targetIdx)
-        arrayfun(@(t) t.contour, obj.targets);
-      else
-        arrayfun(@(t) t.contour, obj.targets(targetIdx));
-      end
-    end
-    
-    function fillIn(obj, targetIdx)
-      if ~exist('targetIdx','var') || isempty(targetIdx)
-        arrayfun(@(t) t.fillIn, obj.targets);
-      else
-        arrayfun(@(t) t.fillIn, obj.targets(targetIdx));
-      end
-    end
-    
-    function setVibrateSigma(obj, sigma, targetIdx)
-      if ~exist('targetIdx','var') || isempty(targetIdx)
-        for i = 1:length(obj.targets)
-          obj.targets(i).vibrateSigma = sigma;
-        end
-      else
-        for i = 1:length(targetIdx)
-          obj.targets(targetIdx(i)).vibrateSigma = sigma;
-        end
-      end
-    end
-    
-    function vibrate(obj, targetIdx)
-      if ~exist('targetIdx','var') || isempty(targetIdx)
-        arrayfun(@(t) t.vibrate, obj.targets);
-      else
-        arrayfun(@(t) t.vibrate, obj.targets(targetIdx));
-      end
-    end
-    
-    function stopVibrating(obj, targetIdx)
-      if ~exist('targetIdx','var') || isempty(targetIdx)
-        arrayfun(@(t) t.stopVibrating, obj.targets);
-      else
-        arrayfun(@(t) t.stopVibrating, obj.targets(targetIdx));
-      end
-    end
-    
-    function acquire(obj, targetIdx)
-      if ~exist('targetIdx','var') || isempty(targetIdx)
-        arrayfun(@(t) t.acquire, obj.targets);
-      else
-        arrayfun(@(t) t.acquire, obj.targets(targetIdx));
-      end
-    end
-    
-    function unacquire(obj, targetIdx)
-      if ~exist('targetIdx','var') || isempty(targetIdx)
-        arrayfun(@(t) t.unacquire, obj.targets);
-      else
-        arrayfun(@(t) t.unacquire, obj.targets(targetIdx));
-      end
-    end
-    
-    function success(obj, targetIdx)
-      if ~exist('targetIdx','var') || isempty(targetIdx)
-        arrayfun(@(t) t.success, obj.targets);
-      else
-        arrayfun(@(t) t.success, obj.targets(targetIdx));
-      end
-    end
-    
-    function failure(obj, targetIdx)
-      if ~exist('targetIdx','var') || isempty(targetIdx)
-        arrayfun(@(t) t.failure, obj.targets);
-      else
-        arrayfun(@(t) t.failure, obj.targets(targetIdx));
-      end
-    end
-  end
-  
-  methods(Access = private, Hidden)
-    function arrayfunc(obj, func, targetIdx)
-      if ~exist('targetIdx','var') || isempty(targetIdx)
-        arrayfun(@(t) func(t), obj.targets);
-      else
-        arrayfun(@(t) func(t), obj.targets(targetIdx));
-      end
-    end
-    
   end
 end
