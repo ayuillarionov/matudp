@@ -78,7 +78,7 @@ classdef AudioFeedback < handle
       
       assert(~ismember(key, r.soundKeys), 'Key %s already loaded', key);
       
-      [wav, freq] = psychwavread(fname);
+      [wav, freq] = psychwavread(fname); %#ok<*PROPLC>
       wav = wav';
       nChannels = size(wav, 1); % Number of rows == number of channels.
       
