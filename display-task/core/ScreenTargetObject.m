@@ -145,7 +145,7 @@ classdef ScreenTargetObject < handle
     
     function normal(obj)
       if isprop(obj, 'fill')
-        obj.fill     = false; %#ok<MCNPR>
+        obj.fill     = true; %#ok<MCNPR>
       end
       
       obj.acquired   = false;
