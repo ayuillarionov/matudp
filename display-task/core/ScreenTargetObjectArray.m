@@ -10,7 +10,19 @@ classdef ScreenTargetObjectArray < ScreenObject
     sortedTargets % list of RectangleTargets in targets, sorted by ascending zOrder
   end
   
-  methods  
+  methods % extend ScreenObject methods
+      function show(obj)
+          obj.showTargets();
+          show@ScreenObject(obj);
+      end
+      
+      function hide(obj)
+          obj.hideTargets();
+          hide@ScreenObject(obj);
+      end
+  end
+  
+  methods
     function add(obj, target)
       assert(isa(target, 'ScreenTargetObject') && isa(target, 'ScreenObject'), ...
         'Can only add objects derived from the classes ScreenTargetObject & ScreenObject');
@@ -85,6 +97,22 @@ classdef ScreenTargetObjectArray < ScreenObject
   end
   
   methods
+      function showTargets(obj, targetIdx)
+          if ~exist('targetIdx','var') || isempty(targetIdx)
+              arrayfun(@(t) t.show, obj.targets);
+          else
+              arrayfun(@(t) t.show, obj.targets(targetIdx));
+          end
+      end
+      
+      function hideTargets(obj, targetIdx)
+          if ~exist('targetIdx','var') || isempty(targetIdx)
+              arrayfun(@(t) t.hide, obj.targets);
+          else
+              arrayfun(@(t) t.hide, obj.targets(targetIdx));
+          end
+      end
+    
     function normal(obj, targetIdx)
       if ~exist('targetIdx','var') || isempty(targetIdx)
         arrayfun(@(t) t.normal, obj.targets);

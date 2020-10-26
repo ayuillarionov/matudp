@@ -20,7 +20,6 @@ classdef ScreenObject < handle & matlab.mixin.Heterogeneous
     function hide(obj)
       obj.visible = false;
     end
-    
   end
   
   methods(Abstract)
