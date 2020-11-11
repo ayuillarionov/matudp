@@ -18,8 +18,8 @@ classdef Cross < ScreenObject
     end
     
     function str = describe(r)
-      str = sprintf('(%g, %g) size %g x %g', ...
-        r.xc, r.yc, r.width, r.height);
+      str = sprintf('%s: (%g, %g) size %g x %g', ...
+        class(r), r.xc, r.yc, r.width, r.height);
     end
     
     function update(r, mgr, sd)

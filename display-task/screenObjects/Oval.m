@@ -36,8 +36,8 @@ classdef Oval < ScreenObject
         fillStr = 'unfilled';
       end
       
-      str = sprintf('(%g, %g) size %g x %g, %s', ...
-        r.xc, r.yc, r.width, r.height, fillStr);
+      str = sprintf('%s: (%g, %g) size %g x %g, %s', ...
+        class(r), r.xc, r.yc, r.width, r.height, fillStr);
     end
     
     % update the object, mgr is a ScreenObjectManager, sd is a ScreenDraw object

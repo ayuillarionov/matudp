@@ -19,8 +19,8 @@ classdef Tracer < ScreenObject
         end
 
         function str = describe(r)
-            str = sprintf('Tracer : (%g by %g, %g by %g)', ...
-                r.xc, r.xv, r.yc, r.yv);
+            str = sprintf('%s: (%g by %g, %g by %g)', ...
+                class(r), r.xc, r.xv, r.yc, r.yv);
         end
 
         function update(r, mgr, sd);

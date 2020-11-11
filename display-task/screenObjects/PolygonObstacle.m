@@ -95,8 +95,8 @@ classdef PolygonObstacle < ScreenObject
         end 
         
         function str = describe(r)
-            str = sprintf('(%g, %g) radius %g, ecc %g, theta %g', ...
-                r.xc, r.yc, r.radius, r.ecc, r.theta);
+            str = sprintf('%s: (%g, %g) radius %g, ecc %g, theta %g', ...
+                class(r), r.xc, r.yc, r.radius, r.ecc, r.theta);
         end
         
         function update(r, mgr, sd)

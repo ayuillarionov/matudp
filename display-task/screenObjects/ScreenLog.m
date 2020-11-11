@@ -41,8 +41,8 @@ classdef ScreenLog < ScreenObject
     end
     
     function str = describe(r)
-      str = sprintf('ScreenLog : %s (%g + %g, %g + %g)', ...
-        r.titleStr, r.x, r.width, r.y, r.height);
+      str = sprintf('%s: %s (%g + %g, %g + %g)', ...
+        class(r), r.titleStr, r.x, r.width, r.y, r.height);
     end
     
     function flush(r)

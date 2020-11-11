@@ -60,8 +60,8 @@ classdef CursorRound < Circle
         seenStr = 'not seen';
       end
       
-      str = sprintf('(%d, %d) %s, %s', ...
-        r.xc, r.yc, touchStr, seenStr);
+      str = sprintf('%s: (%d, %d) %s, %s', ...
+        class(r), r.xc, r.yc, touchStr, seenStr);
     end
     
     function update(r, mgr, sd)

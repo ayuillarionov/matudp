@@ -43,8 +43,8 @@ classdef Target < Rectangle
             else
                 flyStr = 'not flying';
             end
-            str = sprintf('(%g, %g) size %g x %g, %s, %s, %s', ...
-                r.xc, r.yc, r.width, r.height, fillStr, vibrateStr, flyStr);
+            str = sprintf('%s: (%g, %g) size %g x %g, %s, %s, %s', ...
+                class(r), r.xc, r.yc, r.width, r.height, fillStr, vibrateStr, flyStr);
         end
 
         function vibrate(r, sigma)

@@ -18,7 +18,7 @@ classdef ScreenMessage < ScreenObject
     end
     
     function str = describe(r)
-      str = sprintf('ScreenMessage : (%g, %g)', r.x1, r.y1);
+      str = sprintf('%s: (%g, %g)', class(r), r.x1, r.y1);
     end
     
     % update the object, mgr is a ScreenObjectManager, sd is a ScreenDraw instance

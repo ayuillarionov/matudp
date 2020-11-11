@@ -1,15 +1,16 @@
 classdef Cursor < Cross
   
   properties
-    size; % cross width & height
+    size;                        % cross width & height
     penWidth = 3;
     
     sizeTouching = 20;
     penWidthTouching = 5;
     
-    touching = false; % default is non touching
+    touching = false;            % default is non touching
+    
     seen = false;
-    lastNotSeen = []; % date vector [year month day hour minute seconds]
+    lastSeen = [];               % date vector [year month day hour minute seconds]
     threshNotSeenRecently = 0.5; % time in seconds that must elapse
   end
   
@@ -54,16 +55,16 @@ classdef Cursor < Cross
         r.seen = false;
       end
       
-      if ~r.seen
-        r.lastNotSeen = clock(); %#ok<MCSUP> % current date and time as date vector
+      if r.seen
+        r.lastSeen = clock(); %#ok<MCSUP> % current date and time as date vector
       end
     end
     
     function tf = get.notSeenRecently(r)
-      if isempty(r.lastNotSeen)
+      if isempty(r.lastSeen)
         tf = true;
       else
-        tf = etime(clock, r.lastNotSeen) >= r.threshNotSeenRecently;
+        tf = etime(clock, r.lastSeen) >= r.threshNotSeenRecently;
       end
     end
     
