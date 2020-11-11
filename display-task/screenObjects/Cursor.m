@@ -7,8 +7,8 @@ classdef Cursor < Cross
     sizeTouching = 20;
     penWidthTouching = 5;
     
-    touching = 0; % default is non touching
-    seen = 0;
+    touching = false; % default is non touching
+    seen = false;
     lastNotSeen = []; % date vector [year month day hour minute seconds]
     threshNotSeenRecently = 0.5; % time in seconds that must elapse
   end
@@ -18,26 +18,12 @@ classdef Cursor < Cross
   end
   
   methods
-    function obj = Cursor()
-      size = 10;
+    function obj = Cursor(size)
+      if nargin < 1
+        size = 10;
+      end
       obj = obj@Cross(0, 0, size, size); % Cross(xc, yc, width, height)
-      obj.size = 10;
-    end
-    
-    function set.seen(r, val)
-      r.seen = val;
-      
-      if ~r.seen
-        r.lastNotSeen = clock(); % current date and time as date vector
-      end
-    end
-    
-    function tf = get.notSeenRecently(r)
-      if isempty(r.lastNotSeen)
-        tf = false;
-      else
-        tf = etime(clock, r.lastNotSeen) < r.threshNotSeenRecently;
-      end
+      obj.size = size;
     end
     
     function str = describe(r)
@@ -57,11 +43,31 @@ classdef Cursor < Cross
         seenStr = 'not seen';
       end
       
-      str = sprintf('(%d, %d) %s, %s', ...
-        r.xc, r.yc, touchStr, seenStr);
+      str = sprintf('%s: (%g, %g) %s, %s.', ...
+        class(r), r.xc, r.yc, touchStr, seenStr);
     end
     
-    function update(r, mgr, sd)
+    function set.seen(r, val)
+      if val
+        r.seen = true;
+      else
+        r.seen = false;
+      end
+      
+      if ~r.seen
+        r.lastNotSeen = clock(); %#ok<MCSUP> % current date and time as date vector
+      end
+    end
+    
+    function tf = get.notSeenRecently(r)
+      if isempty(r.lastNotSeen)
+        tf = true;
+      else
+        tf = etime(clock, r.lastNotSeen) >= r.threshNotSeenRecently;
+      end
+    end
+    
+    function update(r, mgr, sd) %#ok<INUSD>
       % nothing here
     end
     
@@ -84,7 +90,6 @@ classdef Cursor < Cross
       sd.drawCross(r.xc, r.yc, sz, sz);
       sd.restoreState(state);
     end
-    
   end
   
 end
