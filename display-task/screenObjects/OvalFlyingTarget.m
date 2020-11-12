@@ -1,64 +1,17 @@
-classdef OvalFlyingTarget < Oval
+classdef OvalFlyingTarget < Oval & ScreenTargetObject
   % Inherits class Oval with some basic properties.
   % Oval itself inherits from ScreenObject.
   
-  properties(SetAccess = private, GetAccess = public)
-    acquired = false;
-    successful = false;
-    
-    vibrating = false;
-    
-    xOffset = 0;
-    yOffset = 0;
-    
-    flying = false;
-  end
-  
-  properties
-    vibrateSigma = 2;
-    flyToX = NaN;
-    flyToY = NaN;
-    flyVelocityMMS = 600; % 5 mm/frame on 120 Hz
-  end
-  
-  properties(Dependent, SetAccess = private)
-    x1o
-    x2o
-    y1o
-    y2o
+  properties(Dependent, SetAccess = protected)
+    x1o % left border
+    y1o % bottom border
+    x2o % right border
+    y2o % up border
   end
   
   methods
-    function obj = OvalFlyingTarget(xc, yc, width, height)
-      obj = obj@Oval(xc, yc, width, height);
-    end
-    
-    % a one-line string used to concisely describe this object
-    function str = describe(r)
-      if r.fill
-        fillStr = 'filled';
-      else
-        fillStr = 'unfilled';
-      end
-      
-      if r.vibrating
-        vibrateStr = 'vibrating';
-      else
-        vibrateStr = 'stationary';
-      end
-      
-      if r.flying
-        if isempty(r.flyToX) || isempty(r.flyToY)
-          flyStr = sprintf('flying from (%d, %d)', r.xc, r.yc);
-        else
-          flyStr = sprintf('flying from (%d, %d) to (%d, %d)', r.xc, r.yc, r.flyToX, r.flyToY);
-        end
-      else
-        flyStr = 'not flying';
-      end
-      
-      str = sprintf('FlyingTarget: (%g, %g) size %g x %g, %s, %s, %s.', ...
-        r.xc, r.yc, r.width, r.height, fillStr, vibrateStr, flyStr);
+    function r = OvalFlyingTarget(xc, yc, width, height)
+      r = r@Oval(xc, yc, width, height);
     end
     
     function x1 = get.x1o(r)
@@ -76,156 +29,12 @@ classdef OvalFlyingTarget < Oval
     function y2 = get.y2o(r)
       y2 = r.yc + r.yOffset + r.height/2;
     end
-    
-    function setOffset(r, offset)
-      if nargin >= 2
-        r.xOffset = offset(1);
-        r.yOffset = offset(2);
-      end
-    end
-    
-    function resetOffset(r)
-      r.xOffset = 0;
-      r.yOffset = 0;
-    end
-    
-    function contour(r)
-      r.fill = false;
-    end
-    
-    function fillIn(r)
-      r.fill = true;
-    end
-    
-    function vibrate(r, sigma)
-      if nargin >= 2
-        r.vibrateSigma = sigma;
-      end
-      r.vibrating = true;
-    end
-    
-    function stopVibrating(r)
-      r.vibrating = false;
-    end
-    
-    function acquire(r)
-      r.acquired = true;
-    end
-    
-    function success(r)
-      r.successful = true;
-    end
-    
-    function fly(r, toX, toY, velocity)
-      r.stopVibrating();
-      r.flying    = true;
-      if nargin >= 3
-        r.flyToX  = toX;
-        r.flyToY  = toY;
-      elseif any(isnan([r.flyToX, r.flyToY]))
-        r.flyToX  = randi([-10000, 10000]);
-        r.flyToX  = randi([-10000, 10000]);
-      end
-      if nargin == 4
-        r.flyVelocityMMS = velocity;
-      end
-    end
-    
-    function stopFlying(r)
-      r.flying    = false;
-    end
-    
-    function normal(r)
-      r.fill       = true;
-      r.acquired   = false;
-      r.successful = false;
-      r.vibrating  = false;
-      r.flying     = false;
-      
-      r.xOffset    = 0;
-      r.yOffset    = 0;
-    end
-  end
-  
-  methods(Access = private)
-    function tf = getIsOffScreen(r, sd)
-      tf = false;
-      tf = tf || max([r.x1o r.x2o]) < sd.xMin;
-      tf = tf || min([r.x1o r.x2o]) > sd.xMax;
-      tf = tf || max([r.y1o r.y1o]) < sd.yMin;
-      tf = tf || min([r.y1o r.y2o]) > sd.yMax;
-    end
-    
-    function tf = getIsArrived(r)
-      tf = false;
-      tf = tf || abs(r.xOffset) > abs(r.flyToX - r.xc);
-      tf = tf || abs(r.yOffset) > abs(r.flyToY - r.yc);
-    end
   end
     
   methods
-    % update the object, mgr is a ScreenObjectManager
-    % can be used to add or remove objects from the manager as well
-    function update(r, mgr, sd) %#ok<INUSL>
-      if r.vibrating
-        r.xOffset = r.vibrateSigma * randn(1);
-        r.yOffset = r.vibrateSigma * randn(1);
-      else
-        if r.flying && ~any(isnan([r.flyToX, r.flyToY]))
-          flyVelocity = r.flyVelocityMMS / sd.si.frameRate; % mm per frame
-          
-          deltaX = r.flyToX - r.xc - r.xOffset;
-          deltaY = r.flyToY - r.yc - r.yOffset;
-          deltaVec = [deltaX deltaY] / norm([deltaX deltaY]) * flyVelocity;
-          
-          r.xOffset = r.xOffset + deltaVec(1);
-          r.yOffset = r.yOffset + deltaVec(2);
-          
-          %fileID = fopen('flyTarget.txt', 'a');
-          %fprintf(fileID, '%f %f %f %f\n', r.xc+r.xOffset, r.yc+r.yOffset, ...
-          %  180/pi*atan((r.xc+r.xOffset)/776), 180/pi*atan((r.yc+r.yOffset)/776));
-          %fclose(fileID);
-          %disp([deltaVec, r.xOffset, r.yOffset, r.xc, r.yc, r.xc+r.xOffset, r.yc+r.yOffset, r.flyToX, r.flyToY])
-          
-          if r.getIsArrived() % set the target to the destination point
-            r.xOffset = r.flyToX - r.xc;
-            r.yOffset = r.flyToY - r.yc;
-            
-            %fileID = fopen('flyTarget.txt', 'a');
-            %fprintf(fileID, '\n\n');
-            %fclose(fileID);
-            
-            r.stopFlying();
-            %r.hide();
-          end
-          
-          if r.getIsOffScreen(sd)
-            r.hide();
-          end
-        else
-          %r.xOffset = 0;
-          %r.yOffset = 0;
-        end
-      end
-    end
-    
     %  Draw Oval Flying Target onto the screen
-    function draw(r, sd)
-      state = sd.saveState(); % cell
-      if r.acquired
-        sd.fillColor = r.fillColor;
-        sd.penColor  = [1 1 1]; % black
-      elseif r.successful
-        sd.fillColor = [1 1 1];
-        sd.penColor  = [1 1 1];
-      else
-        sd.fillColor = r.fillColor;
-        sd.penColor  = r.borderColor;
-      end
-      
-      sd.penWidth = r.borderWidth; % default is 0
+    function drawTarget(r, sd)
       sd.drawOval(r.x1o, r.y1o, r.x2o, r.y2o, r.fill);
-      sd.restoreState(state);
     end
   end
   

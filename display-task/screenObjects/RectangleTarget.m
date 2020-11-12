@@ -14,30 +14,6 @@ classdef RectangleTarget < Rectangle & ScreenTargetObject
       obj = obj@Rectangle(xc, yc, width, height);
     end
     
-    % a one-line string used to concisely describe this object
-    function str = describe(obj)
-      if obj.fill
-        fillStr = 'filled';
-      else
-        fillStr = 'unfilled';
-      end
-      
-      if obj.vibrating
-        vibrateStr = 'vibrating';
-      else
-        vibrateStr = 'stationary';
-      end
-      
-      if obj.flyingAway
-        flyStr = sprintf('flying from (%d, %d)', obj.flyFromX, obj.flyFromY);
-      else
-        flyStr = 'not flying';
-      end
-      
-      str = sprintf('%s: (%g, %g) size %g x %g, %s, %s, %s.', ...
-        class(obj), obj.xc, obj.yc, obj.width, obj.height, fillStr, vibrateStr, flyStr);
-    end
-    
     function x1 = get.x1o(obj)
       x1 = obj.xc + obj.xOffset - obj.width/2;
     end

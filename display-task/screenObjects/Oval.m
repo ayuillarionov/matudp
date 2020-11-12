@@ -53,6 +53,18 @@ classdef Oval < ScreenObject
       sd.drawOval(r.x1, r.y1, r.x2, r.y2, r.fill);
       sd.restoreState(state);
     end
+
+    function contour(r)
+      if isprop(r, 'fill')
+        r.fill = false;
+      end
+    end
+    
+    function fillIn(r)
+      if isprop(r, 'fill')
+        r.fill = true;
+      end
+    end
     
     function borderColor = get.borderColor(r)
       % fill color defaults to frame color unless specified otherwise
