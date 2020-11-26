@@ -2,7 +2,7 @@ function [bus, vals, busSpec] = createBusBaseWorkspace(busName, valueStruct, var
     import BusSerialize.SignalSpec;
     
     p = inputParser();
-    p.addParamValue('headerFile', '', @ischar);
+    p.addParameter('headerFile', '', @ischar);
     p.parse(varargin{:});
     headerFile = p.Results.headerFile;
     
@@ -53,7 +53,7 @@ function [bus, vals, busSpec] = createBusBaseWorkspace(busName, valueStruct, var
             if spec.isVariable
                 busElement.Dimensions = spec.busSize;
             else
-                busElement.Dimensions = spec.dims;
+                busElement.Dimensions = double(spec.dims);
             end
             
         else
@@ -85,10 +85,10 @@ function [bus, vals, busSpec] = createBusBaseWorkspace(busName, valueStruct, var
                 busElement.DimensionsMode = 'Variable';
                 % use the specified upper-bound size rather than the size of
                 % value.field
-                busElement.Dimensions = spec.maxSize;
+                busElement.Dimensions = double(spec.maxSize);
             else
                 busElement.DimensionsMode = 'Fixed';
-                busElement.Dimensions = spec.dims;
+                busElement.Dimensions = double(spec.dims);
             end
         end
 
