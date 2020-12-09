@@ -23,7 +23,15 @@ function writeDropVariableLengthSignalsFromBusCode(busName, busNameFixed)
         e = elements(iElement);
         signalSpec = busSpec.signals(iElement);
 
-        if ~signalSpec.isVariable
+        if signalSpec.isBus
+            [~, spec] = BusSerialize.getBusFromBusName(signalSpec.busName);
+            if any([spec.signals(:).isVariable])
+                fnBusName = sprintf('dropVariableLengthSignalsFromBus_%s', spec.busName);
+                w('    busFixed.%s = %s(bus.%s);\n', e.Name, fnBusName, e.Name);
+            else
+                w('    busFixed.%s = bus.%s;\n', e.Name, e.Name);
+            end
+        elseif ~signalSpec.isVariable
             w('    busFixed.%s = bus.%s;\n', e.Name, e.Name);
         end
     end

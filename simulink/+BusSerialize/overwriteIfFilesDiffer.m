@@ -15,7 +15,3 @@ if ~filesSame
 else
     differed = false;
 end
-    
-    
-
-

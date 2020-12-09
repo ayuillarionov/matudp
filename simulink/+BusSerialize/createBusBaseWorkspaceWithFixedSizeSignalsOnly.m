@@ -19,9 +19,31 @@ function [bus, vals, busSpec] = createBusBaseWorkspaceWithFixedSizeSignalsOnly(b
             spec = value;
         end
         
-        if ~spec.isVariable
+        if spec.isBus
+            [busObject, busSpec] = BusSerialize.getBusFromBusName(spec.busName);
+            if any([busSpec.signals(:).isVariable])
+                fixedName = [erase(busSpec.busName, 'Bus'), 'FixedBus'];
+                
+                fnName = sprintf('dropVariableLengthSignalsFromBus_%s', spec.busName);
+                fileName = BusSerialize.getGeneratedCodeFileName(fnName);
+                if ~isfile(fileName)
+                    elements = busObject.Elements;
+                    for iElement = 1:numel(elements)
+                        s.(elements(iElement).Name) = busSpec.signals(iElement);
+                    end
+                    % Create a version with only the fixed size signals
+                    BusSerialize.createBusBaseWorkspaceWithFixedSizeSignalsOnly(fixedName, s);
+                    % and code to convert from variable to fixed
+                    BusSerialize.writeDropVariableLengthSignalsFromBusCode(busSpec.busName, fixedName);
+                end
+                fixedValueStruct.(field) = BusSerialize.SignalSpec.Bus(fixedName);
+            else
+                fixedValueStruct.(field) = spec;
+            end
+        elseif ~spec.isVariable
             fixedValueStruct.(field) = spec;
         end
+        
     end
     
     % defer to normal 
