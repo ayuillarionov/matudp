@@ -6,8 +6,12 @@ classdef Oval < ScreenObject
     yc
     width
     height
-    borderColor
+    
+    color
+    
     borderWidth = 0;
+    borderColor
+    
     fillColor
     fill = false;
   end
@@ -29,7 +33,6 @@ classdef Oval < ScreenObject
     
     % a one-line string used to concisely describe this object
     function str = describe(r)
-      plusMinus = char(177);
       if r.fill
         fillStr = 'filled';
       else
@@ -41,7 +44,8 @@ classdef Oval < ScreenObject
     end
     
     % update the object, mgr is a ScreenObjectManager, sd is a ScreenDraw object
-    function update(r, mgr, sd) 
+    function update(r, mgr, sd) %#ok<INUSD>
+      % nothing here
     end
     
     % use the ScreenDraw object to draw this object onto the screen
@@ -66,12 +70,21 @@ classdef Oval < ScreenObject
       end
     end
     
-    function borderColor = get.borderColor(r)
+    function color = get.borderColor(r)
       % fill color defaults to frame color unless specified otherwise
-      if isempty(r.borderColor) && r.fill
-        borderColor = r.fillColor;
+      if isempty(r.borderColor)
+        color = r.color;
       else
-        borderColor = r.borderColor;
+        color = r.borderColor;
+      end
+    end
+    
+    function color = get.fillColor(r)
+      % fill color defaults to frame color unless specified otherwise
+      if isempty(r.fillColor) && r.fill
+        color = r.color;
+      else
+        color = r.fillColor;
       end
     end
     

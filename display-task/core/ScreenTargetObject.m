@@ -30,7 +30,7 @@ classdef ScreenTargetObject < handle
   end
   
   properties
-    successColor = [1 1 1]; % white;
+    successColor = [1 1 1 1]; % white, fully opaque;
   end
   
   properties(Dependent, SetAccess = protected, Hidden)
@@ -46,22 +46,28 @@ classdef ScreenTargetObject < handle
   
   methods
     function set.successColor(obj, color)
-      if isvector(color) && numel(color) == 3
-        if isempty(obj.successColor) || any(obj.successColor ~= color)
-          obj.successColor = color;
+      if max(color) > 1 || min(color) < 0
+        error('Colors must be in [0, 1]');
+      end
+      
+      if numel(color) == 1
+        obj.successColor(1:3) = repmat(color, 1, 3);
+      elseif isvector(color) && (numel(color) == 3 || numel(color) == 4)
+        if isempty(obj.successColor) || any(obj.successColor(1:numel(color)) ~= color)
+          obj.successColor(1:numel(color)) = color;
         end
       else
-        error('==> Invalid color specification. Expected RGB triplet with the intensities in the range [0 1].');
+        error('==> Invalid color specification. Must be 1, 3, or 4 vectors with the intensities in the range [0 ,1].');
       end
     end
     
     function color = get.defaultContourColor(obj)
-      if isprop(obj, 'color')
-        color = obj.color;
-      elseif isprop(obj, 'borderColor')
+      if isprop(obj, 'boderColor')
         color = obj.borderColor;
+      elseif isprop(obj, 'color')
+        color = obj.color;
       else
-        error(['==> color(or borderColor) is not a property of class ', class(obj)]);
+        error(['==> borderColor(or color) is not a property of class ', class(obj)]);
       end
     end
     
@@ -267,7 +273,7 @@ classdef ScreenTargetObject < handle
       end
     end
     
-    %  Draw Rectangle target onto the screen
+    %  Draw target onto the screen
     function draw(obj, sd)
       state = sd.saveState(); % cell
       obj.setDrawingColors(sd);

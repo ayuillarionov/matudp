@@ -6,8 +6,10 @@ classdef Rectangle < ScreenObject
     width
     height
     
-    borderWidth = 1;
     color     % frame color if not filled and fill color if fillColor not set
+    
+    borderWidth = 1;
+    borderColor
     
     fillColor % fill color defaults to frame color unless specified otherwise
     fill = false;
@@ -51,6 +53,15 @@ classdef Rectangle < ScreenObject
       sd.penWidth  = r.borderWidth;
       sd.drawRect(r.x1, r.y1, r.x2, r.y2, r.fill);
       sd.restoreState(state);
+    end
+    
+    function color = get.borderColor(r)
+      % fill color defaults to frame color unless specified otherwise
+      if isempty(r.borderColor)
+        color = r.color;
+      else
+        color = r.borderColor;
+      end
     end
     
     function color = get.fillColor(r)

@@ -47,7 +47,7 @@ classdef PhotoBox < Circle
         rad = pos.radius + border_width;
       end
       
-      pb = pb@Circle(xc,yc,rad);
+      pb = pb@Circle(xc, yc, rad);
       pb.photoboxId = photoboxId;
       
       pb.fill = true;

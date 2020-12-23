@@ -41,7 +41,7 @@ classdef ScreenObjectArray < ScreenObject
       if isempty(obj.objList)
         list = [];
       else
-        % filter only the valid objects in the target's list
+        % filter only the valid objects in the objects list
         list = obj.objList(isvalid(obj.objList));
         obj.objList = list;
       end
@@ -98,6 +98,7 @@ classdef ScreenObjectArray < ScreenObject
   
   methods
     function showObjList(obj, objIdx)
+      obj.visible = true; % ScreenObjectArray is visible now
       if ~exist('objIdx','var') || isempty(objIdx)
         arrayfun(@(t) t.show, obj.objList);
       else
@@ -106,7 +107,7 @@ classdef ScreenObjectArray < ScreenObject
     end
     
     function hideObjList(obj, objIdx)
-      if ~exist('targetIdx','var') || isempty(objIdx)
+      if ~exist('objIdx','var') || isempty(objIdx)
         arrayfun(@(t) t.hide, obj.objList);
       else
         arrayfun(@(t) t.hide, obj.objList(objIdx));
