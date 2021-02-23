@@ -15,19 +15,19 @@ classdef RectangleTarget < Rectangle & ScreenTargetObject
     end
     
     function x1 = get.x1o(obj)
-      x1 = obj.xc + obj.xOffset - obj.width/2;
+      x1 = obj.xc + obj.xOffset - obj.scale*obj.width/2;
     end
     
     function y1 = get.y1o(obj)
-      y1 = obj.yc + obj.yOffset - obj.height/2;
+      y1 = obj.yc + obj.yOffset - obj.scale*obj.height/2;
     end
     
     function x2 = get.x2o(obj)
-      x2 = obj.xc + obj.xOffset + obj.width/2;
+      x2 = obj.xc + obj.xOffset + obj.scale*obj.width/2;
     end
     
     function y2 = get.y2o(obj)
-      y2 = obj.yc + obj.yOffset + obj.height/2;
+      y2 = obj.yc + obj.yOffset + obj.scale*obj.height/2;
     end
   end
     

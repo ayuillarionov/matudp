@@ -11,14 +11,22 @@ classdef ScreenObjectArray < ScreenObject
   end
   
   methods % extend ScreenObject methods
-    function show(obj)
-      obj.showObjList();
+    function show(obj, objIdx)
+      if ~exist('objIdx','var') || isempty(objIdx)
+        obj.showObjList();
+      else
+        obj.showObjList(objIdx);
+      end
       show@ScreenObject(obj);
     end
     
-    function hide(obj)
-      obj.hideObjList();
-      hide@ScreenObject(obj);
+    function hide(obj, objIdx)
+      if ~exist('objIdx','var') || isempty(objIdx)
+        obj.hideObjList();
+        hide@ScreenObject(obj);
+      else
+        obj.hideObjList(objIdx);
+      end
     end
   end
   
@@ -76,6 +84,8 @@ classdef ScreenObjectArray < ScreenObject
     % update the object, mgr is a ScreenObjectManager
     % can be used to add or remove objects from the manager as well
     function update(obj, mgr, sd)
+      %arrayfun(@(t) t.update(mgr, sd), obj.objList); NOTE: for loop is faster on CPU
+      
       list = obj.objList;
       for i = 1:length(list)
         list(i).update(mgr, sd);
@@ -84,11 +94,14 @@ classdef ScreenObjectArray < ScreenObject
     
     % use the ScreenDraw object to draw this object onto the screen
     function draw(obj, sd)
+      %arrayfun(@(t) t.draw(sd), obj.objList([obj.objList.visible])); % NOTE: for loop is faster on CPU
+      
       % sort by z order and then draw if visible
       list = obj.objList;
       if isempty(list)
         return;
       end
+ 
       list = list([list.visible]);
       for i = 1:length(list)
         list(i).draw(sd);
@@ -109,6 +122,7 @@ classdef ScreenObjectArray < ScreenObject
     function hideObjList(obj, objIdx)
       if ~exist('objIdx','var') || isempty(objIdx)
         arrayfun(@(t) t.hide, obj.objList);
+        obj.visible = false; % ScreenObjectArray is hidden now
       else
         arrayfun(@(t) t.hide, obj.objList(objIdx));
       end

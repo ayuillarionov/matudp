@@ -15,19 +15,19 @@ classdef OvalFlyingTarget < Oval & ScreenTargetObject
     end
     
     function x1 = get.x1o(r)
-      x1 = r.xc + r.xOffset - r.width/2;
+      x1 = r.xc + r.xOffset - r.scale*r.width/2;
     end
     
     function y1 = get.y1o(r)
-      y1 = r.yc + r.yOffset - r.height/2;
+      y1 = r.yc + r.yOffset - r.scale*r.height/2;
     end
     
     function x2 = get.x2o(r)
-      x2 = r.xc + r.xOffset + r.width/2;
+      x2 = r.xc + r.xOffset + r.scale*r.width/2;
     end
     
     function y2 = get.y2o(r)
-      y2 = r.yc + r.yOffset + r.height/2;
+      y2 = r.yc + r.yOffset + r.scale*r.height/2;
     end
   end
     

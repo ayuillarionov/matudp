@@ -158,12 +158,13 @@ classdef AudioFeedback < handle
       filePath = fileparts(mfilename('fullpath')); % search relative to this file's location
       %r.loadWav('failure', fullfile(filePath,'failure.wav'));
       %r.loadWav('success', fullfile(filePath,'success.wav'));
-      r.loadWav('buzz', fullfile(filePath,'buzz.wav'));
+      %r.loadWav('buzz', fullfile(filePath,'buzz.wav'));
       
       % OSX sounds
       r.loadWav('success', fullfile(filePath, 'osx', filesep, 'Pop.wav'));
       r.loadWav('failure', fullfile(filePath, 'osx', filesep, 'Blow.wav'));
       r.loadWav('maskAcquired', fullfile(filePath, 'osx', filesep, 'Morse.wav'));
+      r.loadWav('buzz', fullfile(filePath, 'osx', filesep, 'Hero.wav'));
     end
     
     function playFailure(r)

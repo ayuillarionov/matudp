@@ -5,7 +5,9 @@ classdef Cross < ScreenObject
     yc
     width
     height
+    
     color
+    
     lineWidth = 1;
   end
   
@@ -17,22 +19,25 @@ classdef Cross < ScreenObject
       obj.height = height;
     end
     
-    function str = describe(r)
+    function str = describe(obj)
       str = sprintf('%s: (%g, %g) size %g x %g', ...
-        class(r), r.xc, r.yc, r.width, r.height);
+        class(obj), obj.xc, obj.yc, obj.width, obj.height);
     end
     
-    function update(r, mgr, sd)
+    % update the object, mgr is a ScreenObjectManager, sd is a ScreenDraw object
+    function update(obj, mgr, sd) %#ok<INUSD>
+      % nothing here
     end
     
-    function draw(r, sd)
+    % use the ScreenDraw object to draw this object onto the screen
+    function draw(obj, sd)
       state = sd.saveState();
-      if isempty(r.color)
-        r.color = sd.white;
+      if isempty(obj.color)
+        obj.color = sd.white;
       end
-      sd.penColor = r.color;
-      sd.penWidth = r.lineWidth;
-      sd.drawCross(r.xc, r.yc, r.width, r.height);
+      sd.penColor = obj.color;
+      sd.penWidth = obj.lineWidth;
+      sd.drawCross(obj.xc, obj.yc, obj.width, obj.height);
       sd.restoreState(state);
     end
   end

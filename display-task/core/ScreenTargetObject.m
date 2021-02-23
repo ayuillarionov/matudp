@@ -9,6 +9,8 @@ classdef ScreenTargetObject < handle
     xOffset    = 0;
     yOffset    = 0;
     
+    scale      = 1;
+    
     flying     = false;
     flyingAway = false;
   end
@@ -74,6 +76,8 @@ classdef ScreenTargetObject < handle
     function color = get.defaultFillColor(obj)
       if isprop(obj, 'fillColor')
         color = obj.fillColor;
+      elseif isprop(obj, 'color')
+        color = obj.color;
       else
         error(['==> fillColor not a property of class ', class(obj)]);
       end
@@ -105,6 +109,14 @@ classdef ScreenTargetObject < handle
     function resetOffset(obj)
       obj.xOffset = 0;
       obj.yOffset = 0;
+    end
+    
+    function setScale(obj, scale) % scale obj on the screen
+      obj.scale = scale;
+    end
+    
+    function resetScale(obj)
+      obj.scale = 1;
     end
     
     function vibrate(obj, sigma)
@@ -176,6 +188,7 @@ classdef ScreenTargetObject < handle
       obj.stopVibrating();
       obj.stopFlying();
       obj.resetOffset();
+      obj.resetScale();
     end
   end
     
@@ -269,7 +282,6 @@ classdef ScreenTargetObject < handle
             obj.hide();
           end
         end
-        
       end
     end
     
@@ -277,7 +289,15 @@ classdef ScreenTargetObject < handle
     function draw(obj, sd)
       state = sd.saveState(); % cell
       obj.setDrawingColors(sd);
-      sd.penWidth = obj.borderWidth; % default is 1
+      
+      if isprop(obj, 'borderWidth')
+        sd.penWidth = obj.borderWidth; % default is 1
+      elseif isprop(obj, 'lineWidth')
+        sd.penWidth = obj.lineWidth;   % default is 1
+      else
+        error(['==> borderWidth(or lineWidth) is not a property of class ', class(obj)]);
+      end
+      
       drawTarget(obj, sd);
       sd.restoreState(state);
     end
