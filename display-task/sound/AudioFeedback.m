@@ -2,11 +2,11 @@ classdef AudioFeedback < handle
   
   
   properties
-    waveData % containers.Map : key -> wave signal
+    waveData  % containers.Map : key -> wave signal
     bufferMap % containers.Map : key -> PsychPortAudio buffer with each sound
-    freq % sampling frequency for ALL files
+    freq      % sampling frequency for ALL files
     nChannels % channel count for ALL files
-    paHandle % PsychPortAudio handle
+    paHandle  % PsychPortAudio handle
   end
   
   properties(Dependent)
@@ -38,6 +38,9 @@ classdef AudioFeedback < handle
         psychlasterror('reset');
         r.paHandle = PsychPortAudio('Open', [], [], 0, [], r.nChannels);
       end
+      
+      % reset volume amplifications if any
+      r.setDefaultVolumeLevel();
     end
     
     function delete(r)
@@ -52,13 +55,24 @@ classdef AudioFeedback < handle
       end
     end
     
-    function onsetTimestamp = play(r, key)
-      % onsetTimestamp = .play(key)
+    function setDefaultVolumeLevel(r)
+      PsychPortAudio('Volume', r.paHandle, 1.0);
+    end
+    
+    function onsetTimestamp = play(r, key, volume)
+      % onsetTimestamp = .play(key, volume)
       % play the sound file loaded with loadWav(key, ...)
       assert(r.bufferMap.isKey(key), 'Sound with key %s not found', key);
       
       % Retrieve the buffer
       buffer = r.bufferMap(key);
+      
+      % set audio output volume. 1 is default
+      if exist('volume','var') && ~isempty(volume)
+        PsychPortAudio('Volume', r.paHandle, double(volume));
+      else
+        r.setDefaultVolumeLevel();
+      end
       
       % Fill the audio playback buffer with the audio data 'wavedata':
       PsychPortAudio('FillBuffer', r.paHandle, buffer);
@@ -114,7 +128,7 @@ classdef AudioFeedback < handle
       soundKeys = r.waveData.keys;
     end
     
-    function playTonePulseTrain(r, toneHz, msOn, msOff, reps)
+    function playTonePulseTrain(r, toneHz, msOn, msOff, reps, volume)
       if nargin < 2
         toneHz = 1000;
       end
@@ -136,7 +150,6 @@ classdef AudioFeedback < handle
       tvec = 0:1/r.freq:T;
       
       v = zeros(size(tvec));
-      tOffset = 0;
       for i = 1:reps
         tOffset = (i-1)*(msOn+msOff)/1000;
         mask = tvec >= tOffset & tvec < tOffset + msOn/1000;
@@ -144,6 +157,11 @@ classdef AudioFeedback < handle
       end
       
       %PyschPortAudio('Stop', r.paHandle, 0, 0);
+      if exist('volume','var') && ~isempty(volume)
+        PsychPortAudio('Volume', r.paHandle, volume);
+      else
+        r.setDefaultVolumeLevel();
+      end
       PsychPortAudio('FillBuffer', r.paHandle, v);
       PsychPortAudio('Start', r.paHandle, 1, 0, 0);
     end
@@ -158,29 +176,48 @@ classdef AudioFeedback < handle
       filePath = fileparts(mfilename('fullpath')); % search relative to this file's location
       %r.loadWav('failure', fullfile(filePath,'failure.wav'));
       %r.loadWav('success', fullfile(filePath,'success.wav'));
-      %r.loadWav('buzz', fullfile(filePath,'buzz.wav'));
+      r.loadWav('buzz', fullfile(filePath,'buzz.wav'));
       
       % OSX sounds
-      r.loadWav('success', fullfile(filePath, 'osx', filesep, 'Pop.wav'));
-      r.loadWav('failure', fullfile(filePath, 'osx', filesep, 'Blow.wav'));
+      r.loadWav('failure',      fullfile(filePath, 'osx', filesep, 'Blow.wav'));
+      r.loadWav('success',      fullfile(filePath, 'osx', filesep, 'Pop.wav'));
+      r.loadWav('incorrect',    fullfile(filePath, 'osx', filesep, 'Hero.wav'));
       r.loadWav('maskAcquired', fullfile(filePath, 'osx', filesep, 'Morse.wav'));
-      r.loadWav('buzz', fullfile(filePath, 'osx', filesep, 'Hero.wav'));
     end
     
-    function playFailure(r)
-      r.play('failure');
+    function playFailure(r, volume)
+      if ~exist('volume','var') || isempty(volume)
+        volume = [];
+      end
+      r.play('failure', volume);
     end
     
-    function playSuccess(r)
-      r.play('success');
+    function playSuccess(r, volume) % and correct
+      if ~exist('volume','var') || isempty(volume)
+        volume = [];
+      end
+      r.play('success', volume);
     end
     
-    function playBuzz(r)
-      r.play('buzz');
+    function playIncorrect(r, volume)
+      if ~exist('volume','var') || isempty(volume)
+        volume = [];
+      end
+      r.play('incorrect', volume);
     end
     
-    function playMaskAcquired(r)
-      r.play('maskAcquired');
+    function playBuzz(r, volume)
+      if ~exist('volume','var') || isempty(volume)
+        volume = [];
+      end
+      r.play('buzz', volume);
+    end
+    
+    function playMaskAcquired(r, volume)
+      if ~exist('volume','var') || isempty(volume)
+        volume = [];
+      end
+      r.play('maskAcquired', volume);
     end
   end
   
