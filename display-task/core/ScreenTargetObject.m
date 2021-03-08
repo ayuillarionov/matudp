@@ -182,7 +182,9 @@ classdef ScreenTargetObject < handle
     end
     
     function normal(obj)
-      obj.fillIn();
+      if isprop(obj, 'fill')
+        obj.fillIn();
+      end
       obj.unacquire();
       obj.failure();
       obj.stopVibrating();
