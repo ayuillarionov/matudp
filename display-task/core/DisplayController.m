@@ -198,6 +198,7 @@ classdef DisplayController < handle
   
   methods(Sealed) %  the method cannot be redefined in a subclass
     function postRun(dc)
+      Priority(0);
       dc.sd.delete();
       Screen('CloseAll');
       if ~isempty(dc.com)
@@ -227,6 +228,8 @@ classdef DisplayController < handle
       if ~isempty(dc.task)
         dc.task.initialize();
       end
+      
+      Priority(MaxPriority(dc.sd.window));
     end
     
     function addDebugScreenObjects(dc)
