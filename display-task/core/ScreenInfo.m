@@ -90,7 +90,7 @@ classdef ScreenInfo < handle
     
     function open(si)
       % AssertOpenGL; KbName('UnifyKeyNames').
-      %PsychDefaultSetup(1);
+      PsychDefaultSetup(2);
       
       si.setPrefs();
       
@@ -107,6 +107,7 @@ classdef ScreenInfo < handle
         % Enable automatic hardware anti-aliasing of the display with multisampling.
         si.windowPtr = Screen(si.screenIdx, 'OpenWindow', initColor, ...
           [], [], [], [], si.multisample);
+        %si.windowPtr = PsychImaging('OpenWindow', si.screenIdx, initColor);
       else
         % according to http://tech.groups.yahoo.com/group/psychtoolbox/message/13817
         % setting specialFlags = 32 makes the call to GlobalRect query the window
@@ -114,7 +115,7 @@ classdef ScreenInfo < handle
         % returned remains accurate
         specialFlags = 32;
         si.windowPtr = Screen(si.screenIdx, 'OpenWindow', initColor, ...
-          si.screenRect, [], [], [], si.multisample, [], specialFlags );
+          si.screenRect, [], [], [], si.multisample, [], specialFlags);
       end
       
       % AYuI: Switch to realtime-priority to reduce timing jitter and interruptions
@@ -156,19 +157,19 @@ classdef ScreenInfo < handle
     
     function setPrefs(si)
       if si.initBlack
-        % level 1 of visual debugging - errors only
+        % level 1 of visual debugging - errors only (valid values between 0 and 5)
         si.oldPrefVisualDebugLevel = Screen('Preference', 'VisualDebugLevel', 1);
       end
       if si.skipSyncTests
         % completely skip all tests and calibrations
-        si.oldPrefSkipSyncTests = Screen('Preference', 'SkipSyncTests', 2 );
+        si.oldPrefSkipSyncTests = Screen('Preference', 'SkipSyncTests', 2);
       else
         % perform all tests and calibrations
-        si.oldPrefSkipSyncTests = Screen('Preference', 'SkipSyncTests', 0 );
+        si.oldPrefSkipSyncTests = Screen('Preference', 'SkipSyncTests', 0);
       end
       if ~isempty(si.maxStdDevVBL)
         % adjust the threshold settings used for sync tests
-        si.oldPrefMaxStdDevVBL = Screen('Preference','SyncTestSettings', si.maxStdDevVBL);
+        si.oldPrefMaxStdDevVBL = Screen('Preference', 'SyncTestSettings', si.maxStdDevVBL);
       end
     end
     

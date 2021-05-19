@@ -28,7 +28,27 @@ classdef ScreenObjectManager < handle
     end
     
     function remove(som, sobj)
-      som.objList = som.objList(~isequal(som.objList, sobj));
+      if isa(som.objList, 'matlab.mixin.Heterogeneous')
+        n = numel(som.objList);
+        tf = false(1, n);
+        for i = 1:n
+          tf(i) = isequal(som.objList(i), sobj);
+        end
+        som.objList = som.objList(~tf);
+      else
+        som.objList = som.objList(~isequal(som.objList, sobj));
+      end
+    end
+    
+    function [tf, idx] = ismember(som, sobj)
+      tf = false;
+      for idx = 1:numel(som.objList)
+        tf = isequal(som.objList(idx), sobj);
+        if tf
+          return;
+        end
+      end
+      idx = 0;
     end
     
     function flush(som)
@@ -51,7 +71,7 @@ classdef ScreenObjectManager < handle
         return;
       end
       zOrderList = [som.objList.zOrder];
-      [sorted, sortIdx] = sort(zOrderList);
+      [~, sortIdx] = sort(zOrderList);
       
       list = som.objList(sortIdx);
     end

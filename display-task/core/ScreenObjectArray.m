@@ -4,10 +4,16 @@ classdef ScreenObjectArray < ScreenObject
   
   properties
     objList; % list of ScreenObjects, automatically filtered to delete invalid objects
+    idxList; % unique index of added ScreenObject
   end
   
   properties(Dependent)
     sortedObjList % list of ScreenObjects in objList, sorted by ascending zOrder
+    sortedIdxList
+  end
+  
+  properties(Access = private, Hidden)
+    lastIdx = 0;
   end
   
   methods % extend ScreenObject methods
@@ -34,15 +40,30 @@ classdef ScreenObjectArray < ScreenObject
     function add(obj, sObj)
       assert(isa(sObj, 'ScreenObject'), ...
         'Can only add objects derived from the ScreenObject class');
+      obj.idxList = [obj.idxList, obj.lastIdx+1:obj.lastIdx+numel(sObj)];
       obj.objList = [obj.objList, sObj];
+      obj.lastIdx = obj.idxList(end);
     end
     
-    function remove(obj, sobj)
-      obj.objList = obj.objList(~isequal(obj.objList, sobj));
+    function remove(obj, sObj)
+      if isa(obj.objList, 'matlab.mixin.Heterogeneous')
+        n = numel(obj.objList);
+        tf = false(1, n);
+        for i = 1:n
+          tf(i) = isequal(obj.objList(i), sObj);
+        end
+        obj.idxList = obj.idxList(~tf);
+        obj.objList = obj.objList(~tf);
+      else
+        obj.idxList = obj.idxList(~isequal(obj.objList, sObj));
+        obj.objList = obj.objList(~isequal(obj.objList, sObj));
+      end
     end
     
     function flush(obj)
       obj.objList = [];
+      obj.idxList = [];
+      obj.lastIdx = 0;
     end
     
     function list = get.objList(obj)
@@ -52,6 +73,16 @@ classdef ScreenObjectArray < ScreenObject
         % filter only the valid objects in the objects list
         list = obj.objList(isvalid(obj.objList));
         obj.objList = list;
+      end
+    end
+    
+    function idx = get.idxList(obj)
+      if isempty(obj.idxList)
+        idx = [];
+      else
+        % filter only the valid objects in the objects list
+        idx = obj.idxList(isvalid(obj.objList));
+        obj.idxList = idx;
       end
     end
     
@@ -67,6 +98,18 @@ classdef ScreenObjectArray < ScreenObject
       list = obj.objList(sortIdx);
     end
     
+    function idx = get.sortedIdxList(obj)
+      if isempty(obj.idxList)
+        idx = [];
+        return;
+      end
+      
+      zOrderList = [obj.objList.zOrder];
+      [~, sortIdx] = sort(zOrderList);
+      
+      idx = obj.idxList(sortIdx);
+    end
+    
     % a one-line string used to concisely describe this object
     function str = describe(obj)
       if isempty(obj.objList)
@@ -77,7 +120,7 @@ classdef ScreenObjectArray < ScreenObject
       nObjs = length(obj.objList);
       str = sprintf('%s with %g ScreenObjects:', class(obj), nObjs);
       for i = 1:nObjs
-        str = [str, newline, int2str(i), '. ', obj.objList(i).describe]; %#ok<AGROW>
+        str = [str, newline, inst2str(obj.idxList(i)), '. ', obj.objList(i).describe]; %#ok<AGROW>
       end
     end
     

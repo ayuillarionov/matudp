@@ -6,7 +6,7 @@ classdef DisplayController < handle
     
     si   % screen info object
     sd   % screen draw object
-    mgr  % screen object manager
+    mgr  % ScreenObjectManager
     
     task = DisplayTask(); % currently active DisplayTask object
     
@@ -295,7 +295,7 @@ classdef DisplayController < handle
         tStart = tic;
         
         % create a list of all ScreenObjects in the network shell workspace
-        if ~isempty(dc.objListLog)
+        if ~isempty(dc.objListLog) && isvalid(dc.objListLog)
           dc.objListLog.flush();
           [objList, objNames] = dc.getWorkspaceScreenObjects();
           for i = 1:length(objList)
@@ -304,18 +304,27 @@ classdef DisplayController < handle
           end
         end
         
+        t1 = toc(tStart) * 1000;
+        
         % call the display controller child class update()
         dc.update();
+        
+        t2 = toc(tStart) * 1000;
         
         if ~isempty(dc.task)
           dc.task.update(dc.taskWorkspace);
         end
         
+        t3 = toc(tStart) * 1000;
+        
         % update and draw all of the screen objects
         dc.mgr.updateAll();
+        t4 = toc(tStart) * 1000;
         dc.mgr.drawAll();
+        t5 = toc(tStart) * 1000;
         
         dc.sd.flip();
+        t6 = toc(tStart) * 1000;
         
         dc.postFlip(); % this should be called immediately after flip to get right timing
         
@@ -329,6 +338,8 @@ classdef DisplayController < handle
         
         dc.execTimeMsg.message = sprintf('ET: %5.0f ms / MaxET: %5.0f ms', dc.execTime * 1000, maxExecTime * 1000);
         execTimeBuf = [execTimeBuf(2:end) toc(tStart)];
+        
+        %disp([t1, t2-t1, t3-t2, t4-t3, t5-t4, t6-t5, dc.execTime*1000-t6, dc.execTime * 1000])
         
         % compute execution time between flips
         frameRate = 1/mean(execTimeBuf);
@@ -348,7 +359,6 @@ classdef DisplayController < handle
       if dc.cxt.useFullScreen
         abort = keyCodes(KbName('escape')); % abort on escape
       else
-        
         abort = false;
       end
     end

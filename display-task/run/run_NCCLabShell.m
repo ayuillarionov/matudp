@@ -1,3 +1,8 @@
+% Clear the workspace and the screen
+sca;
+close all;
+clearvars;
+
 cxt = NCCLab_DisplayContext();
 
 % PsychDebugWindowConfiguration
